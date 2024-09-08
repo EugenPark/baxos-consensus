@@ -90,7 +90,7 @@ func (rp *Replica) proposeAfterBackingOff() {
 }
 
 /*
-	send a prepare message to lsatCommittedIndex + 1
+	send a prepare message to lastCommittedIndex + 1
 */
 
 func (rp *Replica) sendPrepare() {

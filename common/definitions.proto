@@ -37,18 +37,23 @@ message Status {
   int64 sender = 3;
 }
 
+message Ballot {
+  int32 number = 1;
+  int32 replica_id = 2;
+}
+
 message PrepareRequest {
   int32 instance_number = 1;
-  int32 prepare_ballot = 2;
+  Ballot prepare_ballot = 2;
   int64 sender = 3;
 }
 
 message PromiseReply {
   int32 instance_number = 1;
   bool promise = 2;
-  int64 last_promised_ballot = 3;
+  Ballot last_promised_ballot = 3;
 
-  int64 last_accepted_ballot = 4;
+  Ballot last_accepted_ballot = 4;
   ReplicaBatch last_accepted_value = 5;
 
   bool decided = 6; // if the current instance is already decided
@@ -63,7 +68,7 @@ message DecideInfo{
 
 message ProposeRequest {
   int32 instance_number = 1;
-  int32 propose_ballot = 2;
+  Ballot propose_ballot = 2;
   ReplicaBatch propose_value = 3;
 
   int64 sender = 4;
@@ -73,7 +78,7 @@ message ProposeRequest {
 message AcceptReply {
   int32 instance_number = 1;
   bool accept = 2;
-  int64 accept_ballot = 3;
+  Ballot accept_ballot = 3;
 
   bool decided = 4; // if the current instance is already decided
   ReplicaBatch decided_value = 5;

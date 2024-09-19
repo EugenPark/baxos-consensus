@@ -3,9 +3,10 @@ package src
 import (
 	"baxos/common"
 	"fmt"
-	"github.com/montanaflynn/stats"
 	"os"
 	"strconv"
+
+	"github.com/montanaflynn/stats"
 )
 
 const CLIENT_TIMEOUT = 5000000
@@ -37,21 +38,8 @@ func (cl *Client) addValueNToArrayMTimes(list []int64, N int64, M int) []int64 {
 }
 
 /*
-	Count the number of individual responses in responses array
-*/
-
-func (cl *Client) getNumberOfReceivedResponses(responses map[string]requestBatch) int {
-	count := 0
-	for _, element := range responses {
-		count += len(element.batch.Requests)
-	}
-	return count
-
-}
-
-/*
 	Map the request with the response batch
-    Compute the time taken for each request
+	Compute the time taken for each request
 	Computer the error rate
 	Compute the throughput as successfully committed requests per second (doesn't include failed requests)
 	Compute the latency
@@ -59,10 +47,12 @@ func (cl *Client) getNumberOfReceivedResponses(responses map[string]requestBatch
 */
 
 func (cl *Client) computeStats() {
-
-	f, err := os.Create(cl.logFilePath + strconv.Itoa(int(cl.clientName)) + ".txt") // log file
+	logFilePath := cl.logFilePath + strconv.Itoa(int(cl.id)) + ".txt"
+	cl.debug(logFilePath, 0)
+	f, err := os.Create(logFilePath) // log file
+	
 	if err != nil {
-		panic("Error creating the output log file")
+		panic("Error creating the output log file: " + err.Error())
 	}
 	defer f.Close()
 
@@ -126,7 +116,7 @@ func (cl *Client) getFloat64List(list []int64) []float64 {
 	print a client request batch with arrival time and end time w.r.t test start time
 */
 
-func (cl *Client) printRequests(messages common.ClientBatch, startTime int64, endTime int64, f *os.File) {
+func (cl *Client) printRequests(messages *common.ClientBatch, startTime int64, endTime int64, f *os.File) {
 	for i := 0; i < len(messages.Requests); i++ {
 		_, _ = f.WriteString(messages.Requests[i].Command + "," + strconv.Itoa(int(startTime)) + "," + strconv.Itoa(int(endTime)) + "\n")
 	}

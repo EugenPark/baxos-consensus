@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+func (b *Ballot) IsGreaterThan(other *Ballot) bool {
+	if b.Number > other.Number {
+		return true
+	} else if b.Number < other.Number {
+		return false
+	} else {
+		return b.ReplicaId > other.ReplicaId
+	}
+}
+
+func (b *Ballot) IsEqualTo(other *Ballot) bool {
+	return b.Number == other.Number && b.ReplicaId == other.ReplicaId
+}
+
 /*
 	RPC pair assigns a unique uint8 to each type of message defined in the proto files
 */
@@ -23,10 +37,10 @@ type OutgoingRPC struct {
 	Returns the self ip:port
 */
 
-func GetAddress(nodes []Instance, name int32) string {
+func GetAddress(nodes []Instance, id int32) string {
 	for i := 0; i < len(nodes); i++ {
-		if nodes[i].Name == strconv.Itoa(int(name)) {
-			return nodes[i].Address
+		if nodes[i].Id == strconv.Itoa(int(id)) {
+			return nodes[i].Domain + ":" + nodes[i].Port
 		}
 	}
 	panic("should not happen")

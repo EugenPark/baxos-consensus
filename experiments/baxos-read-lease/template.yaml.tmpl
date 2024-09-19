@@ -1,0 +1,33 @@
+services:
+{{- range $i, $client := .clients}}
+  client_{{ $client.id }}:
+    container_name: {{ $client.domain }}
+    build:
+      dockerfile: experiments/baxos-read-lease/client.dockerfile
+      context: ../../
+    environment:
+      CLIENT_ID: {{ $client.id }}
+      CLIENT_REGION: {{ $client.region }}
+    volumes:
+      - logs:/logs
+    depends_on:
+    {{- range $replica := $.replicas}}
+      - replica_{{ $replica.id }}
+    {{- end }}
+{{ end }}
+
+{{- range $replica := .replicas}}
+  replica_{{ $replica.id }}:
+    container_name: {{ $replica.domain }}
+    build:
+      dockerfile: experiments/baxos-read-lease/replica.dockerfile
+      context: ../../
+    environment:
+      REPLICA_ID: {{ $replica.id }}
+      REPICA_REGION: {{ $replica.region }}
+    volumes:
+      - logs:/logs
+{{- end }}
+
+volumes:
+  logs:

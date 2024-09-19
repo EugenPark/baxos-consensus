@@ -22,12 +22,16 @@ func (rp *Replica) updateApplicationLogic(requests []*common.ClientBatch) []*com
 
 func (rp *Replica) sendClientResponses(responses []*common.ClientBatch) {
 	for i := 0; i < len(responses); i++ {
-		rp.sendMessage(int32(responses[i].Sender), common.RPCPair{
-			Code: rp.messageCodes.ClientBatchRpc,
-			Obj:  responses[i],
-		})
-		if rp.debugOn {
-			rp.debug("sent client response to "+strconv.Itoa(int(responses[i].Sender)), 0)
+		rp.outgoingChan <- common.Message {
+			From: rp.id,
+			To:   int32(responses[i].Sender),
+			RpcPair: &common.RPCPair {
+				Code: rp.messageCodes.ClientBatchRpc,
+				Obj:  responses[i],
+			},
 		}
+		
+		rp.debug("sent client response to "+strconv.Itoa(int(responses[i].Sender)), 0)
+		
 	}
 }

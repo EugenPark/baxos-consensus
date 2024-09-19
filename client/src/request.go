@@ -24,8 +24,8 @@ func (cl *Client) handleClientResponseBatch(batch *common.ClientBatch) {
 		return
 	}
 
-	cl.receivedResponses[batch.UniqueId] = requestBatch{
-		batch: *batch,
+	cl.receivedResponses[batch.UniqueId] = &requestBatch {
+		batch: batch,
 		time:  time.Now(), // record the time when the response was received
 	}
 	cl.receivedNumMutex.Lock()
@@ -66,15 +66,15 @@ func (cl *Client) startRequestGenerators() {
 		go func(threadNumber int) {
 			localCounter := 0
 			lastSent := time.Now() // used to get how long to wait
-			for true {             // this runs forever
+			for {             // this runs forever
 				if cl.finished {
 					return
 				}
 				numRequests := 0
 				var requests []*common.SingleOperation
 				// this loop collects requests until the minimum batch size is met OR the batch time is timeout
-				for !(numRequests >= cl.clientBatchSize || (time.Now().Sub(lastSent).Microseconds() > int64(cl.clientBatchTime) && numRequests > 0)) {
-					_ = <-cl.arrivalChan // keep collecting new requests arrivals
+				for !(numRequests >= cl.clientBatchSize || (time.Since(lastSent).Microseconds() > int64(cl.clientBatchTime) && numRequests > 0)) {
+					<-cl.arrivalChan // keep collecting new requests arrivals
 					requests = append(requests, &common.SingleOperation{
 						Command: fmt.Sprintf("%d%v%v", rand.Intn(2),
 							cl.RandString(cl.keyLen),
@@ -89,45 +89,47 @@ func (cl *Client) startRequestGenerators() {
 				}
 				cl.receivedNumMutex.Unlock()
 
-				for i, _ := range cl.replicaAddrList {
+				for _, replicaNode := range cl.replicaNodes {
 
-					var requests_i []*common.SingleOperation
+					var requestsIndex []*common.SingleOperation
 
 					for j := 0; j < len(requests); j++ {
-						requests_i = append(requests_i, &common.SingleOperation{
+						requestsIndex = append(requestsIndex, &common.SingleOperation{
 							Command: requests[j].Command,
 						})
 					}
 
 					// create a new client batch
-					batch := common.ClientBatch{
-						UniqueId: strconv.Itoa(int(cl.clientName)) + "." + strconv.Itoa(threadNumber) + "." + strconv.Itoa(localCounter), // this is a unique string id,
-						Requests: requests_i,
-						Sender:   int64(cl.clientName),
+					batch := common.ClientBatch {
+						UniqueId: strconv.Itoa(int(cl.id)) + "." + strconv.Itoa(threadNumber) + "." + strconv.Itoa(localCounter), // this is a unique string id,
+						Requests: requestsIndex,
+						Sender:   int64(cl.id),
 					}
-					if cl.debugOn {
-						cl.debug("Sending "+strconv.Itoa(int(cl.clientName))+"."+strconv.Itoa(threadNumber)+"."+strconv.Itoa(localCounter)+" batch size "+strconv.Itoa(len(requests)), 0)
-					}
-					rpcPair := common.RPCPair{
+					cl.debug("Sending "+strconv.Itoa(int(cl.id))+"."+strconv.Itoa(threadNumber)+"."+strconv.Itoa(localCounter)+" batch size "+strconv.Itoa(len(requests)), 0)
+					
+					rpcPair := common.RPCPair {
 						Code: cl.messageCodes.ClientBatchRpc,
 						Obj:  &batch,
 					}
-
-					cl.sendMessage(i, rpcPair)
+					cl.outgoingChan <- common.Message {
+						From:  cl.id,
+						To: replicaNode.id,
+						RpcPair:  &rpcPair,
+					}
 				}
 
-				batch := common.ClientBatch{
-					UniqueId: strconv.Itoa(int(cl.clientName)) + "." + strconv.Itoa(threadNumber) + "." + strconv.Itoa(localCounter), // this is a unique string id,
+				batch := common.ClientBatch {
+					UniqueId: strconv.Itoa(int(cl.id)) + "." + strconv.Itoa(threadNumber) + "." + strconv.Itoa(localCounter), // this is a unique string id,
 					Requests: requests,
-					Sender:   int64(cl.clientName),
+					Sender:   int64(cl.id),
 				}
 
 				cl.numSentBatches++
 				localCounter++
 				lastSent = time.Now()
 
-				cl.sentRequests[threadNumber] = append(cl.sentRequests[threadNumber], requestBatch{
-					batch: batch,
+				cl.sentRequests[threadNumber] = append(cl.sentRequests[threadNumber], requestBatch {
+					batch: &batch,
 					time:  time.Now(),
 				})
 			}
@@ -143,10 +145,10 @@ func (cl *Client) startRequestGenerators() {
 
 func (cl *Client) startScheduler() {
 	cl.startTime = time.Now()
-	for time.Now().Sub(cl.startTime).Nanoseconds() < int64(cl.testDuration*1000*1000*1000) {
+	for time.Since(cl.startTime).Nanoseconds() < int64(cl.testDuration*1000*1000*1000) {
 		nextArrivalTime := <-cl.arrivalTimeChan
 
-		for time.Now().Sub(cl.startTime).Nanoseconds() < nextArrivalTime {
+		for time.Since(cl.startTime).Nanoseconds() < nextArrivalTime {
 			// busy waiting until the time to dispatch this request arrives
 		}
 		cl.arrivalChan <- true
@@ -162,7 +164,7 @@ func (cl *Client) generateArrivalTimes() {
 		lambda := float64(cl.arrivalRate) / (1000.0 * 1000.0 * 1000.0) // requests per nano second
 		arrivalTime := 0.0
 
-		for true {
+		for {
 			// Get the next probability value from Uniform(0,1)
 			p := rand.Float64()
 

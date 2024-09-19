@@ -1,0 +1,27 @@
+replicas:
+  - region: eu
+    id: 0
+    domain: "replica_0.eu"
+    port: 8080
+  - region: eu
+    id: 1
+    domain: "replica_1.eu"
+    port: 8080
+  - region: as
+    id: 2
+    domain: "replica_2.as"
+    port: 8080
+  - region: as
+    id: 3
+    domain: "replica_3.as"
+    port: 8080
+
+clients:
+  - region: eu
+    id: 11
+    domain: "client_11.eu"
+    port: 8080
+  - region: as
+    id: 12
+    domain: "client_12.as"
+    port: 8080

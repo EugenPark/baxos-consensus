@@ -34,7 +34,7 @@ type MessageCode struct {
 */
 
 func GetRPCCodes() MessageCode {
-	return MessageCode{
+	return MessageCode {
 		ClientBatchRpc: 1,
 		StatusRPC:      2,
 		PrepareRequest: 3,

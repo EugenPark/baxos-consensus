@@ -2,6 +2,7 @@ package src
 
 import (
 	"baxos/common"
+	"fmt"
 	"math"
 	"math/rand"
 	"os"
@@ -9,20 +10,20 @@ import (
 )
 
 type BaxosProposerInstance struct {
-	preparedBallot        int32 // the ballot number for which the prepare message was sent
+	preparedBallot        *common.Ballot // the ballot number for which the prepare message was sent
 	numSuccessfulPromises int32 // the number of successful promise messages received
 
-	highestSeenAcceptedBallot int32               // the highest accepted ballot number among them set of Promise messages
-	highestSeenAcceptedValue  common.ReplicaBatch // the highest accepted value among the set of Promise messages
+	highestSeenAcceptedBallot *common.Ballot       // the highest accepted ballot number among them set of Promise messages
+	highestSeenAcceptedValue  *common.ReplicaBatch // the highest accepted value among the set of Promise messages
 
-	proposedValue        common.ReplicaBatch // the value that is proposed
+	proposedValue        *common.ReplicaBatch // the value that is proposed
 	numSuccessfulAccepts int32               // the number of successful accept messages received
 }
 
 type BaxosAcceptorInstance struct {
-	promisedBallot int32
-	acceptedBallot int32
-	acceptedValue  common.ReplicaBatch
+	promisedBallot *common.Ballot
+	acceptedBallot *common.Ballot
+	acceptedValue  *common.ReplicaBatch
 }
 
 /*
@@ -32,7 +33,7 @@ type BaxosAcceptorInstance struct {
 type BaxosInstance struct {
 	proposer_bookkeeping BaxosProposerInstance
 	acceptor_bookkeeping BaxosAcceptorInstance
-	decidedValue         common.ReplicaBatch
+	decidedValue         *common.ReplicaBatch
 	decided              bool
 }
 
@@ -69,8 +70,8 @@ func InitBaxosConsensus(replica *Replica, isAsync bool, asyncTimeout int, roundT
 
 	replicatedLog := make([]BaxosInstance, 0)
 	// create the genesis slot
-	replicatedLog = append(replicatedLog, BaxosInstance{
-		decidedValue: common.ReplicaBatch{},
+	replicatedLog = append(replicatedLog, BaxosInstance {
+		decidedValue: &common.ReplicaBatch{},
 		decided:      true,
 	})
 
@@ -97,44 +98,50 @@ func InitBaxosConsensus(replica *Replica, isAsync bool, asyncTimeout int, roundT
 func (rp *Replica) calculateBackOffTime() int64 {
 	// k × 2^retries × 2 × RTT
 	k := 1.0 - rand.Float64()
-	backoff_time := k * math.Pow(2, float64(rp.baxosConsensus.retries+1)) * float64(rp.baxosConsensus.roundTripTime)
-	return int64(backoff_time)
+	rp.debug(fmt.Sprintf("Replica %d: k = %f, roundTripTime = %d, retries = %d", rp.id, k, rp.baxosConsensus.roundTripTime, rp.baxosConsensus.retries ), 0)
+	backoffTime := k * math.Pow(2, float64(rp.baxosConsensus.retries+1)) * float64(rp.baxosConsensus.roundTripTime)
+	return int64(backoffTime)
 }
 
 // external API for Baxos messages
 
 func (rp *Replica) handleBaxosConsensus(message common.Serializable, code uint8) {
 
-	if code == rp.messageCodes.PrepareRequest {
+	messageTmpl := "Instance %d, ballot (%d, %d): Received a message of type %s from %d"
+	switch code {
+	case rp.messageCodes.PrepareRequest:
 		prepareRequest := message.(*common.PrepareRequest)
-		if rp.debugOn {
-			rp.debug("Received a prepare message from "+strconv.Itoa(int(prepareRequest.Sender))+" for instance "+strconv.Itoa(int(prepareRequest.InstanceNumber))+" for prepare ballot "+strconv.Itoa(int(prepareRequest.PrepareBallot)), 0)
-		}
+		msgType := "prepare"
+		msg := fmt.Sprintf(messageTmpl, prepareRequest.InstanceNumber, prepareRequest.PrepareBallot.ReplicaId, prepareRequest.PrepareBallot.Number, msgType, prepareRequest.Sender)
+		rp.debug(msg, 2)
 		rp.handlePrepare(prepareRequest)
-	}
 
-	if code == rp.messageCodes.PromiseReply {
+	case rp.messageCodes.PromiseReply:
 		promiseReply := message.(*common.PromiseReply)
-		if rp.debugOn {
-			rp.debug("Received a promise message from "+strconv.Itoa(int(promiseReply.Sender))+" for instance "+strconv.Itoa(int(promiseReply.InstanceNumber))+" for promise ballot "+strconv.Itoa(int(promiseReply.LastPromisedBallot)), 0)
-		}
+		// msgType := "promise"
+		// msg := fmt.Sprintf(messageTmpl, (*promiseReply).InstanceNumber, (*promiseReply).LastPromisedBallot.ReplicaId, (*promiseReply).LastPromisedBallot.Number, msgType, (*promiseReply).Sender)
+		// rp.debug(msg, 2)
+		
 		rp.handlePromise(promiseReply)
-	}
-
-	if code == rp.messageCodes.ProposeRequest {
+	
+	case rp.messageCodes.ProposeRequest: 
 		proposeRequest := message.(*common.ProposeRequest)
-		if rp.debugOn {
-			rp.debug("Received a propose message from "+strconv.Itoa(int(proposeRequest.Sender))+" for instance "+strconv.Itoa(int(proposeRequest.InstanceNumber))+" for propose ballot "+strconv.Itoa(int(proposeRequest.ProposeBallot)), 0)
-		}
+		// msgType := "propose"
+		// msg := fmt.Sprintf(messageTmpl, proposeRequest.InstanceNumber, proposeRequest.ProposeBallot.ReplicaId, proposeRequest.ProposeBallot.Number, msgType, proposeRequest.Sender)
+		// rp.debug(msg, 2)
 		rp.handlePropose(proposeRequest)
-	}
+	
 
-	if code == rp.messageCodes.AcceptReply {
+	case rp.messageCodes.AcceptReply: 
 		acceptReply := message.(*common.AcceptReply)
-		if rp.debugOn {
-			rp.debug("Received an accept message from "+strconv.Itoa(int(acceptReply.Sender))+" for instance "+strconv.Itoa(int(acceptReply.InstanceNumber))+" for accept ballot "+strconv.Itoa(int(acceptReply.AcceptBallot)), 0)
-		}
+		// msgType := "accept"
+		// msg := fmt.Sprintf(messageTmpl, acceptReply.InstanceNumber, acceptReply.AcceptBallot.ReplicaId, acceptReply.AcceptBallot.Number, msgType, acceptReply.Sender)
+		// rp.debug(msg, 2)
 		rp.handleAccept(acceptReply)
+	
+	default:
+		panic("Unknown message type")
+	
 	}
 }
 
@@ -153,21 +160,33 @@ func (rp *Replica) createInstance(n int) {
 
 	for i := 0; i < numberOfNewInstances; i++ {
 
-		rp.baxosConsensus.replicatedLog = append(rp.baxosConsensus.replicatedLog, BaxosInstance{
-			proposer_bookkeeping: BaxosProposerInstance{
-				preparedBallot:            -1,
+		rp.baxosConsensus.replicatedLog = append(rp.baxosConsensus.replicatedLog, BaxosInstance {
+			proposer_bookkeeping: BaxosProposerInstance {
+				preparedBallot: &common.Ballot{
+					Number:    -1,
+					ReplicaId: rp.id,
+				},
 				numSuccessfulPromises:     0,
-				highestSeenAcceptedBallot: -1,
-				highestSeenAcceptedValue:  common.ReplicaBatch{},
-				proposedValue:             common.ReplicaBatch{},
+				highestSeenAcceptedBallot: &common.Ballot{
+					Number:    -1,
+					ReplicaId: rp.id,
+				},
+				highestSeenAcceptedValue:  &common.ReplicaBatch{},
+				proposedValue:             &common.ReplicaBatch{},
 				numSuccessfulAccepts:      0,
 			},
 			acceptor_bookkeeping: BaxosAcceptorInstance{
-				promisedBallot: -1,
-				acceptedBallot: -1,
-				acceptedValue:  common.ReplicaBatch{},
+				promisedBallot: &common.Ballot{
+					Number:    -1,
+					ReplicaId: rp.id,
+				},
+				acceptedBallot: &common.Ballot{
+					Number:    -1,
+					ReplicaId: rp.id,
+				},
+				acceptedValue:  &common.ReplicaBatch{},
 			},
-			decidedValue: common.ReplicaBatch{},
+			decidedValue: &common.ReplicaBatch{},
 			decided:      false,
 		})
 	}
@@ -178,14 +197,14 @@ func (rp *Replica) createInstance(n int) {
 */
 
 func (rp *Replica) printBaxosLogConsensus() {
-	f, err := os.Create(rp.logFilePath + strconv.Itoa(int(rp.name)) + "-consensus.txt")
+	f, err := os.Create(rp.logFilePath + strconv.Itoa(int(rp.id)) + "-consensus.txt")
 	if err != nil {
 		panic(err.Error())
 	}
 	defer f.Close()
 
 	for i := int32(0); i <= rp.baxosConsensus.lastCommittedLogIndex; i++ {
-		if rp.baxosConsensus.replicatedLog[i].decided == false {
+		if !rp.baxosConsensus.replicatedLog[i].decided {
 			panic("should not happen")
 		}
 		for j := 0; j < len(rp.baxosConsensus.replicatedLog[i].decidedValue.Requests); j++ {
@@ -204,9 +223,8 @@ func (rp *Replica) updateSMR() {
 
 	for i := rp.baxosConsensus.lastCommittedLogIndex + 1; i < int32(len(rp.baxosConsensus.replicatedLog)); i++ {
 
-		if rp.baxosConsensus.replicatedLog[i].decided == true {
-			var clientResponses []*common.ClientBatch
-			clientResponses = rp.updateApplicationLogic(rp.baxosConsensus.replicatedLog[i].decidedValue.Requests)
+		if rp.baxosConsensus.replicatedLog[i].decided {
+			var clientResponses []*common.ClientBatch = rp.updateApplicationLogic(rp.baxosConsensus.replicatedLog[i].decidedValue.Requests)
 			rp.sendClientResponses(clientResponses)
 			if rp.debugOn {
 				rp.debug("Committed baxos consensus instance "+"."+strconv.Itoa(int(i)), 0)

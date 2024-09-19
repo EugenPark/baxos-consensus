@@ -89,7 +89,7 @@ func (t *TimerWithCancel) Start() {
 	Set a function to call when timeout
 */
 
-func (t *TimerWithCancel) SetTimeoutFuntion(f func()) {
+func (t *TimerWithCancel) SetTimeoutFunction(f func()) {
 	t.f = f
 }
 

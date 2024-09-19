@@ -12,9 +12,9 @@ import (
 
 func (rp *Replica) setTimer(instance int64) {
 
-	rp.baxosConsensus.timer = common.NewTimerWithCancel(time.Duration(rp.baxosConsensus.roundTripTime) * time.Microsecond)
+	rp.baxosConsensus.timer = common.NewTimerWithCancel(time.Duration(2 * rp.baxosConsensus.roundTripTime) * time.Microsecond)
 
-	rp.baxosConsensus.timer.SetTimeoutFuntion(func() {
+	rp.baxosConsensus.timer.SetTimeoutFunction(func() {
 		rp.baxosConsensus.timeOutChan <- instance
 
 	})
@@ -36,17 +36,17 @@ func (rp *Replica) randomBackOff(instance int64) {
 	rp.baxosConsensus.isProposing = true
 	rp.baxosConsensus.timer = nil
 	rp.baxosConsensus.retries++
-	if rp.baxosConsensus.retries > 10 {
-		rp.baxosConsensus.retries = 10
-	}
+	// if rp.baxosConsensus.retries > 10 {
+	// 	rp.baxosConsensus.retries = 10
+	// }
 
 	rp.incomingRequests = append(rp.incomingRequests, rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue.Requests...)
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulPromises = 0
-	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedBallot = &common.Ballot{
-		Number: -1,
-		ReplicaId:     rp.id,
-	}
+	// rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedBallot = &common.Ballot{
+	// 	Number: -1,
+	// 	ReplicaId:     rp.id,
+	// }
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue = &common.ReplicaBatch{}
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = &common.ReplicaBatch{}
@@ -57,14 +57,14 @@ func (rp *Replica) randomBackOff(instance int64) {
 	// set the backing off timer
 	backoffTime := rp.calculateBackOffTime()
 
-	if backoffTime > 5000000 {
-		backoffTime = 5000000 // maximum 5s cap on backoff time
-	}
+	// if backoffTime > 5000000 {
+	// 	backoffTime = 5000000 // maximum 5s cap on backoff time
+	// }
 	rp.debug(fmt.Sprintf("PROPOSER: Backing off for %d microseconds", backoffTime), 2)
 	
 	rp.baxosConsensus.wakeupTimer = common.NewTimerWithCancel(time.Duration(backoffTime) * time.Microsecond)
 
-	rp.baxosConsensus.wakeupTimer.SetTimeoutFuntion(func() {
+	rp.baxosConsensus.wakeupTimer.SetTimeoutFunction(func() {
 		rp.baxosConsensus.wakeupChan <- true
 		rp.debug("PROPOSER: Finished backing off", 2)
 		
@@ -89,6 +89,12 @@ func (rp *Replica) sendPrepare() {
 
 	nextFreeInstance := rp.baxosConsensus.lastCommittedLogIndex + 1
 	rp.createInstance(int(nextFreeInstance))
+
+	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot = 
+		&common.Ballot {
+			Number: rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedBallot.Number + 1,
+			ReplicaId:     rp.id,
+		}
 	
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.numSuccessfulPromises = 0
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedBallot = &common.Ballot {
@@ -98,12 +104,6 @@ func (rp *Replica) sendPrepare() {
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedValue = &common.ReplicaBatch{}
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.proposedValue = &common.ReplicaBatch{}
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.numSuccessfulAccepts = 0
-
-	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot = 
-		&common.Ballot {
-			Number: rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot.Number + 1,
-			ReplicaId:     rp.id,
-		}
 
 	for _, replicaNode := range rp.replicaNodes {
 		prepareMessage := common.PrepareRequest {

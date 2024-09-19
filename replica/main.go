@@ -23,7 +23,6 @@ func main() {
 	keyLen := flag.Int("keyLen", 8, "key length")
 	valLen := flag.Int("valLen", 8, "value length")
 	benchmarkMode := flag.Int("benchmarkMode", 0, "0: resident store, 1: redis")
-	asyncTimeout := flag.Int("asyncTimeout", 500, "artificial asynchronous timeout in milli seconds")
 	timeEpochSize := flag.Int("timeEpochSize", 500, "duration of a time epoch for the attacker in milli seconds")
 	artificialLatency := flag.Int("artificialLatency", 20000, "Duration of artificial latency when sending a message in micro seconds")
 	artificialLatencyMultiplier := flag.Int("artificialLatencyMultiplier", 10, "By how much should the artificial latency be multiplied when sending to a different region")
@@ -72,7 +71,7 @@ func main() {
 	rp := src.New(int32(*id), *logFilePath, *batchSize, *batchTime, *debugOn,
 		          *debugLevel, *benchmarkMode, *keyLen, *valLen,
 				  *timeEpochSize, incomingChan, outgoingChan, *region)
-	rp.Init(cfg, *isAsync, *asyncTimeout, int64(*roundTripTime))
+	rp.Init(cfg, *isAsync, int64(*roundTripTime))
 
 	var wg sync.WaitGroup
 	wg.Add(1)

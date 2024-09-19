@@ -93,7 +93,7 @@ func New(id int32, logFilePath string, replicaBatchSize int,
 	}	
 }
 
-func (rp *Replica) Init(cfg *common.InstanceConfig, isAsync bool, asyncTimeout int, roundTripTime int64) {
+func (rp *Replica) Init(cfg *common.InstanceConfig, isAsync bool, roundTripTime int64) {
 	rp.numReplicas = len(cfg.Replicas)
 	rp.listenAddress = common.GetAddress(cfg.Replicas, rp.id)
 
@@ -123,7 +123,7 @@ func (rp *Replica) Init(cfg *common.InstanceConfig, isAsync bool, asyncTimeout i
 		rp.debug(fmt.Sprintf("set of attacked nodes %v ", rp.asynchronousReplicas), -1)
 	}
 
-	rp.baxosConsensus = InitBaxosConsensus(rp, isAsync, asyncTimeout, roundTripTime)
+	rp.baxosConsensus = InitBaxosConsensus(rp, isAsync, roundTripTime)
 
 	fmt.Printf("Initialized replica %v\n", rp.id)
 }

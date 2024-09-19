@@ -57,7 +57,6 @@ type Baxos struct {
 	replica *Replica
 
 	isAsync      bool // to simulate an asynchronous network
-	asyncTimeout int
 
 	quorumSize int32
 }
@@ -66,7 +65,7 @@ type Baxos struct {
 	init Baxos Consensus data structs
 */
 
-func InitBaxosConsensus(replica *Replica, isAsync bool, asyncTimeout int, roundTripTime int64) *Baxos {
+func InitBaxosConsensus(replica *Replica, isAsync bool, roundTripTime int64) *Baxos {
 
 	replicatedLog := make([]BaxosInstance, 0)
 	// create the genesis slot
@@ -88,7 +87,6 @@ func InitBaxosConsensus(replica *Replica, isAsync bool, asyncTimeout int, roundT
 		retries:               0,
 		replica:               replica,
 		isAsync:               isAsync,
-		asyncTimeout:          asyncTimeout,
 		quorumSize:            int32(replica.numReplicas/2 + 1),
 	}
 }

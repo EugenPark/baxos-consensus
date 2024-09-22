@@ -14,16 +14,16 @@ type BaxosProposerInstance struct {
 	numSuccessfulPromises int32 // the number of successful promise messages received
 
 	highestSeenAcceptedBallot *common.Ballot       // the highest accepted ballot number among them set of Promise messages
-	highestSeenAcceptedValue  *common.ReplicaBatch // the highest accepted value among the set of Promise messages
+	highestSeenAcceptedValue  *common.WriteRequest // the highest accepted value among the set of Promise messages
 
-	proposedValue        *common.ReplicaBatch // the value that is proposed
+	proposedValue        *common.WriteRequest // the value that is proposed
 	numSuccessfulAccepts int32               // the number of successful accept messages received
 }
 
 type BaxosAcceptorInstance struct {
 	promisedBallot *common.Ballot
 	acceptedBallot *common.Ballot
-	acceptedValue  *common.ReplicaBatch
+	acceptedValue  *common.WriteRequest
 }
 
 /*
@@ -33,7 +33,7 @@ type BaxosAcceptorInstance struct {
 type BaxosInstance struct {
 	proposer_bookkeeping BaxosProposerInstance
 	acceptor_bookkeeping BaxosAcceptorInstance
-	decidedValue         *common.ReplicaBatch
+	decidedValue         *common.WriteRequest
 	decided              bool
 }
 
@@ -70,7 +70,7 @@ func InitBaxosConsensus(replica *Replica, isAsync bool, roundTripTime int64) *Ba
 	replicatedLog := make([]BaxosInstance, 0)
 	// create the genesis slot
 	replicatedLog = append(replicatedLog, BaxosInstance {
-		decidedValue: &common.ReplicaBatch{},
+		decidedValue: &common.WriteRequest{},
 		decided:      true,
 	})
 
@@ -96,7 +96,7 @@ func InitBaxosConsensus(replica *Replica, isAsync bool, roundTripTime int64) *Ba
 func (rp *Replica) calculateBackOffTime() int64 {
 	// k × 2^retries × 2 × RTT
 	k := 1.0 - rand.Float64()
-	rp.debug(fmt.Sprintf("Replica %d: k = %f, roundTripTime = %d, retries = %d", rp.id, k, rp.baxosConsensus.roundTripTime, rp.baxosConsensus.retries ), 0)
+	rp.debug(fmt.Sprintf("Replica %d: k = %f, roundTripTime = %d, retries = %d", rp.id, k, rp.baxosConsensus.roundTripTime, rp.baxosConsensus.retries), 0)
 	backoffTime := k * math.Pow(2, float64(rp.baxosConsensus.retries+1)) * float64(rp.baxosConsensus.roundTripTime)
 	return int64(backoffTime)
 }
@@ -138,8 +138,7 @@ func (rp *Replica) handleBaxosConsensus(message common.Serializable, code uint8)
 		rp.handleAccept(acceptReply)
 	
 	default:
-		panic("Unknown message type")
-	
+		panic(fmt.Sprintf("Unknown message type %d", code))
 	}
 }
 
@@ -169,8 +168,8 @@ func (rp *Replica) createInstance(n int) {
 					Number:    -1,
 					ReplicaId: rp.id,
 				},
-				highestSeenAcceptedValue:  &common.ReplicaBatch{},
-				proposedValue:             &common.ReplicaBatch{},
+				highestSeenAcceptedValue:  &common.WriteRequest{},
+				proposedValue:             &common.WriteRequest{},
 				numSuccessfulAccepts:      0,
 			},
 			acceptor_bookkeeping: BaxosAcceptorInstance{
@@ -182,9 +181,9 @@ func (rp *Replica) createInstance(n int) {
 					Number:    -1,
 					ReplicaId: rp.id,
 				},
-				acceptedValue:  &common.ReplicaBatch{},
+				acceptedValue:  &common.WriteRequest{},
 			},
-			decidedValue: &common.ReplicaBatch{},
+			decidedValue: &common.WriteRequest{},
 			decided:      false,
 		})
 	}
@@ -205,11 +204,7 @@ func (rp *Replica) printBaxosLogConsensus() {
 		if !rp.baxosConsensus.replicatedLog[i].decided {
 			panic("should not happen")
 		}
-		for j := 0; j < len(rp.baxosConsensus.replicatedLog[i].decidedValue.Requests); j++ {
-			for k := 0; k < len(rp.baxosConsensus.replicatedLog[i].decidedValue.Requests[j].Requests); k++ {
-				_, _ = f.WriteString(strconv.Itoa(int(i)) + "-" + strconv.Itoa(j) + "-" + strconv.Itoa(k) + ":" + rp.baxosConsensus.replicatedLog[i].decidedValue.Requests[j].Requests[k].Command + "\n")
-			}
-		}
+		_, _ = f.WriteString(fmt.Sprintf("%d: %s\n", i, rp.baxosConsensus.replicatedLog[i].decidedValue.Command.Value))
 	}
 }
 
@@ -221,15 +216,19 @@ func (rp *Replica) updateSMR() {
 
 	for i := rp.baxosConsensus.lastCommittedLogIndex + 1; i < int32(len(rp.baxosConsensus.replicatedLog)); i++ {
 
-		if rp.baxosConsensus.replicatedLog[i].decided {
-			var clientResponses []*common.ClientBatch = rp.updateApplicationLogic(rp.baxosConsensus.replicatedLog[i].decidedValue.Requests)
-			rp.sendClientResponses(clientResponses)
-			if rp.debugOn {
-				rp.debug("Committed baxos consensus instance "+"."+strconv.Itoa(int(i)), 0)
-			}
-			rp.baxosConsensus.lastCommittedLogIndex = i
-		} else {
+		baxosInstance := rp.baxosConsensus.replicatedLog[i]
+
+		if !baxosInstance.decided {
 			break
 		}
+
+		response := common.WriteResponse {
+			UniqueId: baxosInstance.decidedValue.UniqueId,
+			Success:  true,
+			Sender:  int64(rp.id),
+		}
+		rp.baxosConsensus.lastCommittedLogIndex = i
+		rp.sendClientResponse(&response, int32(baxosInstance.decidedValue.Sender))
+		rp.debug(fmt.Sprintf("Committed baxos consensus instance %d", i), 0)
 	}
 }

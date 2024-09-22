@@ -12,8 +12,6 @@ func main() {
 	region := flag.String("region", "", "region of the client")
 	configFile := flag.String("config", "configuration/local-configuration.yml", "configuration file")
 	logFilePath := flag.String("logFilePath", "logs/", "log file path")
-	batchSize := flag.Int("batchSize", 50, "client batch size")
-	batchTime := flag.Int("batchTime", 2000, "maximum time to wait for collecting a batch of requests in micro seconds")
 	testDuration := flag.Int("testDuration", 60, "test duration in seconds")
 	arrivalRate := flag.Float64("arrivalRate", 1000, "poisson arrival rate in requests per second")
 	requestType := flag.String("requestType", "status", "request type: [status , request]")
@@ -35,8 +33,12 @@ func main() {
 
 	rpcConfigs := []common.RPCConfig{
 		{
-			MsgObj: new(common.ClientBatch),
-			Code:   common.GetRPCCodes().ClientBatchRpc,
+			MsgObj: new(common.WriteRequest),
+			Code:   common.GetRPCCodes().WriteRequest,
+		},
+		{
+			MsgObj: new(common.WriteResponse),
+			Code:   common.GetRPCCodes().WriteResponse,
 		},
 		{
 			MsgObj: new(common.Status),
@@ -50,7 +52,7 @@ func main() {
 	network := common.NewNetwork(int32(*id), (*debugLevel == 0), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 	
-	cl := src.New(int32(*id), *logFilePath, *batchSize, *batchTime, *testDuration, *arrivalRate, *requestType, *operationType, *debugOn, *debugLevel, *keyLen, *valLen, *window, incomingChan, outgoingChan, *region)
+	cl := src.New(int32(*id), *logFilePath, *testDuration, *arrivalRate, *requestType, *operationType, *debugOn, *debugLevel, *keyLen, *valLen, *window, incomingChan, outgoingChan, *region)
 	cl.Init(cfg)
 
 	go network.Run()

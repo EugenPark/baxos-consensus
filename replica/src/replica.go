@@ -33,9 +33,6 @@ type Replica struct {
 
 	logFilePath string // the path to write the log, used for sanity checks
 
-	replicaBatchSize int // maximum replica side batch size
-	replicaBatchTime int // maximum replica side batch time in micro seconds
-
 	debugOn    bool // if turned on, the debug messages will be printed on the console
 	debugLevel int  // current debug level
 
@@ -46,9 +43,8 @@ type Replica struct {
 	logPrinted bool // to check if log was printed before
 
 	benchmarkMode int        // 0 for resident K/V store, 1 for redis
-	state         *Benchmark // k/v store
 
-	incomingRequests []*common.ClientBatch
+	incomingRequests []*common.WriteRequest // incoming requests
 
 	asynchronousReplicas   map[int][]int // for each time based epoch, the minority replicas that are attacked
 	timeEpochSize          int           // how many ms for a given time epoch
@@ -59,8 +55,7 @@ type Replica struct {
 	instantiate a new replica instance, allocate the buffers
 */
 
-func New(id int32, logFilePath string, replicaBatchSize int, 
-	     replicaBatchTime int, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
+func New(id int32, logFilePath string, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
 		 valLen int, timeEpochSize int, 
 		 incomingChan <-chan common.Message, outgoingChan chan<- common.Message, region string) *Replica {
 	return &Replica{
@@ -76,17 +71,13 @@ func New(id int32, logFilePath string, replicaBatchSize int,
 
 		logFilePath: logFilePath,
 
-		replicaBatchSize: replicaBatchSize,
-		replicaBatchTime: replicaBatchTime,
-
 		debugOn:       debugOn,
 		debugLevel:    debugLevel,
 		serverStarted: false,
 
 		logPrinted:       false,
 		benchmarkMode:    benchmarkMode,
-		state:            Init(benchmarkMode, id, keyLen, valLen),
-		incomingRequests: make([]*common.ClientBatch, 0),
+		incomingRequests: make([]*common.WriteRequest, 0),
 
 		asynchronousReplicas:   make(map[int][]int),
 		timeEpochSize:          timeEpochSize,
@@ -148,10 +139,10 @@ func (rp *Replica) Run() {
 				rp.debug("Status message from "+fmt.Sprintf("%#v", statusMessage.Sender), 3)
 				rp.handleStatus(statusMessage)
 
-			case rp.messageCodes.ClientBatchRpc:
-				clientBatch := replicaMessage.RpcPair.Obj.(*common.ClientBatch)
-				rp.debug("Client batch message from "+fmt.Sprintf("%#v", clientBatch.Sender), 0)
-				rp.handleClientBatch(clientBatch)
+			case rp.messageCodes.WriteRequest:
+				writeRequest := replicaMessage.RpcPair.Obj.(*common.WriteRequest)
+				rp.debug(fmt.Sprintf("Client write request message from %#v", writeRequest.Sender), 0)
+				rp.handleWriteRequest(writeRequest)
 
 			default:
 				rp.debug("Baxos consensus message", 2)

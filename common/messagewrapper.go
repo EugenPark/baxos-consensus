@@ -2,8 +2,9 @@ package common
 
 import (
 	"encoding/binary"
-	"google.golang.org/protobuf/proto"
 	"io"
+
+	"google.golang.org/protobuf/proto"
 )
 
 /*
@@ -21,12 +22,15 @@ type Serializable interface {
 */
 
 type MessageCode struct {
-	ClientBatchRpc uint8
-	StatusRPC      uint8
-	PrepareRequest uint8
-	PromiseReply   uint8
-	ProposeRequest uint8
-	AcceptReply    uint8
+	WriteRequest    uint8
+	ReadRequest     uint8
+	WriteResponse   uint8
+	ReadResponse	uint8
+	StatusRPC       uint8
+	PrepareRequest  uint8
+	PromiseReply    uint8
+	ProposeRequest  uint8
+	AcceptReply     uint8
 }
 
 /*
@@ -35,12 +39,15 @@ type MessageCode struct {
 
 func GetRPCCodes() MessageCode {
 	return MessageCode {
-		ClientBatchRpc: 1,
-		StatusRPC:      2,
-		PrepareRequest: 3,
-		PromiseReply:   4,
-		ProposeRequest: 5,
-		AcceptReply:    6,
+		WriteRequest:    1,
+		ReadRequest:     2,
+		WriteResponse:   3,
+		ReadResponse:	 4,
+		StatusRPC:       5,
+		PrepareRequest:  6,
+		PromiseReply:    7,
+		ProposeRequest:  8,
+		AcceptReply:     9,
 	}
 }
 
@@ -84,18 +91,28 @@ func unmarshalMessage(wire io.Reader, m proto.Message) error {
 	return nil
 }
 
-// ClientBatch wrapper
-
-func (t *ClientBatch) Marshal(wire io.Writer) error {
+func (t *WriteRequest) Marshal(wire io.Writer) error {
 	return marshalMessage(wire, t)
 }
 
-func (t *ClientBatch) Unmarshal(wire io.Reader) error {
+func (t *WriteRequest) Unmarshal(wire io.Reader) error {
 	return unmarshalMessage(wire, t)
 }
 
-func (t *ClientBatch) New() Serializable {
-	return new(ClientBatch)
+func (t *WriteRequest) New() Serializable {
+	return new(WriteRequest)
+}
+
+func (t *WriteResponse) Marshal(wire io.Writer) error {
+	return marshalMessage(wire, t)
+}
+
+func (t *WriteResponse) Unmarshal(wire io.Reader) error {
+	return unmarshalMessage(wire, t)
+}
+
+func (t *WriteResponse) New() Serializable {
+	return new(WriteResponse)
 }
 
 // Status wrapper

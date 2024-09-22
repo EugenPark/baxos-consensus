@@ -12,22 +12,23 @@ import (
 	Upon receiving a client response, add the request to the received requests map
 */
 
-func (cl *Client) handleClientResponseBatch(batch *common.ClientBatch) {
+func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 	if cl.finished {
 		return
 	}
 
+	id := response.UniqueId
+
 	// check if key already exists
-	_, ok := cl.receivedResponses[batch.UniqueId]
-	if ok {
-		return
+	writeRequest, ok := cl.writeRequests[id]
+	if !ok {
+		cl.debug(fmt.Sprintf("Received response for a write request with id %s that was not sent", id), 0)
+		panic("should not happen")
 	}
 
-	cl.receivedResponses[batch.UniqueId] = &RequestBatch {
-		batch: batch,
-		time:  time.Now(), // record the time when the response was received
-	}
-	cl.debug("Added response Batch with id " + batch.UniqueId, 0)
+	writeRequest.EndTime()
+
+	cl.debug("Added write response with id " + id, 0)
 	
 }
 
@@ -39,7 +40,7 @@ func (cl *Client) handleClientResponseBatch(batch *common.ClientBatch) {
 */
 
 func (cl *Client) SendRequests() {
-	go cl.generateRequests()
+	go cl.generateWriteRequests()
 	go cl.startScheduler()
 	time.Sleep(time.Duration(cl.testDuration) * time.Second)
 	cl.finished = true
@@ -47,34 +48,27 @@ func (cl *Client) SendRequests() {
 	cl.computeStats()
 }
 
-func (cl *Client) generateRequests() {
-	batchCounter := 0
-	for !cl.finished {            
-		numRequests := 0
-		var requests []*common.SingleOperation
-		// this loop collects requests until the minimum batch size is met OR the batch time is timeout
-		for numRequests < cl.clientBatchSize {
-			<-cl.arrivalChan // keep collecting new requests arrivals
-			cl.debug("New request arrival", 0)
-			requests = append(requests, &common.SingleOperation {
-				Command: fmt.Sprintf("%d%v%v", rand.Intn(2),
-					cl.RandString(cl.keyLen),
-					cl.RandString(cl.valueLen)),
-			})
-			numRequests++
-		}
+func (cl *Client) generateWriteRequests() {
+	requestCounter := 0
+	for !cl.finished {            		
+		<-cl.arrivalChan
+		cl.debug("New request arrival", 0)
+
+		command := fmt.Sprintf("%d%v%v", rand.Intn(2), cl.RandString(cl.keyLen), cl.RandString(cl.valueLen))
+		uniqueId := fmt.Sprintf("%d.%d", cl.id, requestCounter)
 		
-		uniqueId := fmt.Sprintf("%d.%d", cl.id, batchCounter)
 		// create a new client batch
-		batch := common.ClientBatch {
+		writeRequest := common.WriteRequest {
 			UniqueId: uniqueId, // this is a unique string id,
-			Requests: requests,
+			Command: &common.Command {
+				Value: command,
+			},
 			Sender:   int64(cl.id),
 		}
 		
 		rpcPair := common.RPCPair {
-			Code: cl.messageCodes.ClientBatchRpc,
-			Obj:  &batch,
+			Code: cl.messageCodes.WriteRequest,
+			Obj:  &writeRequest,
 		}
 
 		for _, replicaNode := range cl.replicaNodes {
@@ -84,15 +78,16 @@ func (cl *Client) generateRequests() {
 				RpcPair:  &rpcPair,
 			}
 
-			cl.debug(fmt.Sprintf("Sent batch with id %s and len %d to replica with id %d", uniqueId, len(requests), replicaNode.id), 0)
+			cl.debug(fmt.Sprintf("Client %d: Sent a request with id %s to replica with id %d", cl.id, uniqueId, replicaNode.id), 0)
 		}
 
-		batchCounter++
-
-		cl.sentRequests[uniqueId] = &RequestBatch {
-			batch: &batch,
-			time:  time.Now(),
+		requestTime := ClientRequest {
+			command: command,
 		}
+		requestTime.StartTime()
+
+		cl.writeRequests[uniqueId] = &requestTime
+		requestCounter++
 	}
 }
 

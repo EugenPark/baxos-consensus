@@ -37,16 +37,14 @@ func (rp *Replica) randomBackOff(instance int64) {
 	rp.baxosConsensus.isProposing = true
 	rp.baxosConsensus.timer = nil
 	rp.baxosConsensus.retries++
-	// if rp.baxosConsensus.retries > 10 {
-	// 	rp.baxosConsensus.retries = 10
-	// }
 
-	rp.incomingRequests = append(rp.incomingRequests, rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue.Requests...)
+	// prepend the value
+	rp.incomingRequests = append([]*common.WriteRequest{rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue}, rp.incomingRequests...)
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulPromises = 0
-	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue = &common.ReplicaBatch{}
+	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue = &common.WriteRequest{}
 
-	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = &common.ReplicaBatch{}
+	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = &common.WriteRequest{}
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulAccepts = 0
 
 	rp.debug(fmt.Sprintf("PROPOSER: Instance %d: reset as a result of proposer bookkeeping after timeout", instance), 1)
@@ -54,9 +52,6 @@ func (rp *Replica) randomBackOff(instance int64) {
 	// set the backing off timer
 	backoffTime := rp.calculateBackOffTime()
 
-	// if backoffTime > 5000000 {
-	// 	backoffTime = 5000000 // maximum 5s cap on backoff time
-	// }
 	rp.debug(fmt.Sprintf("PROPOSER: Backing off for %d microseconds", backoffTime), 2)
 	
 	rp.baxosConsensus.wakeupTimer = common.NewTimerWithCancel(time.Duration(backoffTime) * time.Microsecond)
@@ -101,8 +96,8 @@ func (rp *Replica) sendPrepare() {
 		Number: -1,
 		ReplicaId:     rp.id,
 	}
-	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedValue = &common.ReplicaBatch{}
-	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.proposedValue = &common.ReplicaBatch{}
+	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedValue = &common.WriteRequest{}
+	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.proposedValue = &common.WriteRequest{}
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.numSuccessfulAccepts = 0
 
 	for _, replicaNode := range rp.replicaNodes {
@@ -198,46 +193,33 @@ func (rp *Replica) sendPropose(instance int32) {
 
 	rp.createInstance(int(instance))
 
-	// set the decided info
-
 	if !rp.baxosConsensus.replicatedLog[instance-1].decided {
 		panic("error, previous index not decided")
 	}
 
-	decideInfo := common.DecideInfo{
+	decideInfo := common.DecideInfo {
 		InstanceNumber: instance - 1,
 		DecidedValue:   rp.baxosConsensus.replicatedLog[instance-1].decidedValue,
 	}
 
 	// propose message
-	var proposeValue *common.ReplicaBatch
+	var proposeValue *common.WriteRequest
 
 	if rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedBallot.Number != -1 {
 		proposeValue = rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue
 	} else {
-		var requests []*common.ClientBatch
-
-		if len(rp.incomingRequests) < rp.replicaBatchSize {
-			for i := 0; i < len(rp.incomingRequests); i++ {
-				requests = append(requests, rp.incomingRequests[i])
-			}
-			rp.incomingRequests = []*common.ClientBatch{}
+		if len(rp.incomingRequests) <= 0 {
+			proposeValue = &common.WriteRequest{}			
 		} else {
-			for i := 0; i < rp.replicaBatchSize; i++ {
-				requests = append(requests, rp.incomingRequests[i])
-			}
-			rp.incomingRequests = rp.incomingRequests[rp.replicaBatchSize:]
-		}
-
-		proposeValue = &common.ReplicaBatch{
-			Requests: requests,
+			proposeValue = rp.incomingRequests[0]
+			rp.incomingRequests = rp.incomingRequests[1:]
 		}
 	}
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = proposeValue
 
 	for _, replicaNode := range rp.replicaNodes {
-		proposeRequest := common.ProposeRequest{
+		proposeRequest := common.ProposeRequest {
 			InstanceNumber: instance,
 			ProposeBallot:  rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot,
 			ProposeValue:   proposeValue,
@@ -250,9 +232,9 @@ func (rp *Replica) sendPropose(instance int32) {
 			RpcPair: &common.RPCPair{Code: rp.messageCodes.ProposeRequest, Obj: &proposeRequest},
 		}
 	}
-		rp.debug(fmt.Sprintf("PROPOSER: Instance %d, Ballot (%d, %d): Broadcast propose", instance,
-			rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.ReplicaId,
-			rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.Number), 2)
+	rp.debug(fmt.Sprintf("PROPOSER: Instance %d, Ballot (%d, %d): Broadcast propose", instance,
+		rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.ReplicaId,
+		rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.Number), 2)
 	
 
 	if rp.baxosConsensus.timer != nil {
@@ -301,7 +283,7 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 		rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided = true
 		rp.baxosConsensus.replicatedLog[message.InstanceNumber].decidedValue = rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.proposedValue
 		rp.updateSMR()
-		
+
 		rp.baxosConsensus.isProposing = false
 		rp.baxosConsensus.retries--
 		if rp.baxosConsensus.retries < 0 {

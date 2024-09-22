@@ -1,33 +1,31 @@
 syntax = "proto3";
 option go_package = "common/";
 
-/*
-  Client batch refers to a client request batch, or a client response batch
-  Client request batch is sent by a client once it has collected a batch of client requests
-  Client response batch is sent by a replica node
-*/
-
-
-
-
-
-
-message SingleOperation {
-  string command = 1;
+message Command {
+  string value = 1;
 }
 
-message ClientBatch {
+message WriteRequest {
   string unique_id = 1;
-  repeated SingleOperation requests = 2;
+  Command command = 2;
   int64 sender = 3;
 }
 
-/*
-  replica batch refers to a single value proposed in a consensus message
-*/
+message ReadRequest {
+  string unique_id = 1;
+  int64 sender = 2;
+}
 
-message ReplicaBatch {
-  repeated ClientBatch requests = 1;
+message ReadResponse {
+  string unique_id = 1;
+  Command command = 2;
+  int64 sender = 3;
+}
+
+message WriteResponse {
+  string unique_id = 1;
+  bool success = 2;
+  int64 sender = 3;
 }
 
 /*
@@ -59,22 +57,22 @@ message PromiseReply {
   Ballot last_promised_ballot = 3;
 
   Ballot last_accepted_ballot = 4;
-  ReplicaBatch last_accepted_value = 5;
+  WriteRequest last_accepted_value = 5;
 
   bool decided = 6; // if the current instance is already decided
-  ReplicaBatch decided_value = 7;
+  WriteRequest decided_value = 7;
   int64 sender = 8;
 }
 
-message DecideInfo{
+message DecideInfo {
   int32 instance_number = 1;
-  ReplicaBatch decided_value = 2;
+  WriteRequest decided_value = 2;
 }
 
 message ProposeRequest {
   int32 instance_number = 1;
   Ballot propose_ballot = 2;
-  ReplicaBatch propose_value = 3;
+  WriteRequest propose_value = 3;
 
   int64 sender = 4;
   DecideInfo decide_info = 5;
@@ -86,7 +84,7 @@ message AcceptReply {
   Ballot accept_ballot = 3;
 
   bool decided = 4; // if the current instance is already decided
-  ReplicaBatch decided_value = 5;
+  WriteRequest decided_value = 5;
 
   int64 sender = 6;
 }

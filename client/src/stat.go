@@ -1,10 +1,8 @@
 package src
 
 import (
-	"baxos/common"
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/montanaflynn/stats"
 )
@@ -29,27 +27,21 @@ func (cl *Client) computeStats() {
 		panic("Error creating the output log file: " + err.Error())
 	}
 	defer f.Close()
-	numTotalSentRequests := len(cl.sentRequests)
-	numTotalResponses := len(cl.receivedResponses)
+	numTotalSentRequests := cl.getNumberOfSentWriteRequests()
+	numTotalResponses := cl.getNumberOfReceivedWriteRequests()
 
 	var latencyList []int64 // contains the time duration spent requests in micro seconds
 
-	for batchId, responseBatch := range cl.receivedResponses {
-		sentBatch, ok := cl.sentRequests[batchId];
-		if !ok {
-			cl.debug("Response received for a batch that was not sent", 0)
-			panic("should not happen")
-		}
-
-		batchLatency := responseBatch.time.Sub(sentBatch.time).Milliseconds()
-		latencyList = append(latencyList, batchLatency)
-		cl.printRequests(sentBatch.batch, sentBatch.time.Sub(cl.startTime).Milliseconds(), responseBatch.time.Sub(cl.startTime).Milliseconds(), f)
+	for _, requestTime := range cl.writeRequests {
+		latencyList = append(latencyList, int64(requestTime.Duration().Milliseconds()))
+		cl.printRequests(requestTime.command, requestTime.start.Sub(cl.startTime).Milliseconds(), requestTime.end.Sub(cl.startTime).Milliseconds(), f)
 	}
 
 	medianLatency, _ := stats.Median(cl.getFloat64List(latencyList))
 	percentile99, _ := stats.Percentile(cl.getFloat64List(latencyList), 99.0) // tail latency
 	duration := cl.testDuration
-	errorRate := (numTotalSentRequests - numTotalResponses) * 100.0 / len(cl.sentRequests)
+	// needs fixing since write request times is not the total number of received responses
+	errorRate := (numTotalSentRequests - numTotalResponses) * 100.0 / numTotalSentRequests
 	requestsPerSecond := float64(numTotalResponses) / float64(duration)
 
 	fmt.Printf("Total time := %d seconds\n", duration)
@@ -57,6 +49,27 @@ func (cl *Client) computeStats() {
 	fmt.Printf("Median Latency := %.2f milliseconds per request\n", medianLatency)
 	fmt.Printf("99 pecentile latency := %.2f milliseconds per request\n", percentile99)
 	fmt.Printf("Error Rate := %d \n", errorRate)
+}
+
+func (cl *Client) getNumberOfReceivedWriteRequests() int {
+	var count int
+
+	for _, requestTime := range cl.writeRequests {
+		if !requestTime.end.IsZero() {
+			count++
+		}
+	}
+	return count
+}
+
+func (cl *Client) getNumberOfSentWriteRequests() int {
+	var count int
+	for _, requestTime := range cl.writeRequests {
+		if !requestTime.start.IsZero() {
+			count++
+		}
+	}
+	return count
 }
 
 /*
@@ -75,8 +88,6 @@ func (cl *Client) getFloat64List(list []int64) []float64 {
 	print a client request batch with arrival time and end time w.r.t test start time
 */
 
-func (cl *Client) printRequests(messages *common.ClientBatch, startTime int64, endTime int64, f *os.File) {
-	for i := 0; i < len(messages.Requests); i++ {
-		_, _ = f.WriteString(messages.Requests[i].Command + "," + strconv.Itoa(int(startTime)) + "," + strconv.Itoa(int(endTime)) + "\n")
-	}
+func (cl *Client) printRequests(command string, startTime int64, endTime int64, f *os.File) {
+	_, _ = f.WriteString(fmt.Sprintf("%s,%d,%d\n", command, startTime, endTime))
 }

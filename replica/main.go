@@ -14,8 +14,6 @@ func main() {
 	region := flag.String("region", "", "region of the replica")
 	configFile := flag.String("config", "configuration/local-configuration.yml", "configuration file")
 	logFilePath := flag.String("logFilePath", "logs/", "log file path")
-	batchSize := flag.Int("batchSize", 50, "batch size")
-	batchTime := flag.Int("batchTime", 5000, "maximum time to wait for collecting a batch of requests in micro seconds")
 	debugOn := flag.Bool("debugOn", false, "false or true")
 	isAsync := flag.Bool("isAsync", false, "false or true to simulate asynchrony")
 	debugLevel := flag.Int("debugLevel", -1, "debug level")
@@ -37,8 +35,12 @@ func main() {
 
 	rpcConfigs := []common.RPCConfig {
 		{
-			MsgObj: new(common.ClientBatch),
-			Code:   common.GetRPCCodes().ClientBatchRpc,
+			MsgObj: new(common.WriteRequest),
+			Code:   common.GetRPCCodes().WriteRequest,
+		},
+		{
+			MsgObj: new(common.WriteResponse),
+			Code:   common.GetRPCCodes().WriteResponse,
 		},
 		{
 			MsgObj: new(common.Status),
@@ -68,7 +70,7 @@ func main() {
 	network := common.NewNetwork(int32(*id), (*debugLevel == 0), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 
-	rp := src.New(int32(*id), *logFilePath, *batchSize, *batchTime, *debugOn,
+	rp := src.New(int32(*id), *logFilePath, *debugOn,
 		          *debugLevel, *benchmarkMode, *keyLen, *valLen,
 				  *timeEpochSize, incomingChan, outgoingChan, *region)
 	rp.Init(cfg, *isAsync, int64(*roundTripTime))

@@ -12,6 +12,24 @@ type ReplicaNode struct {
 	region string
 }
 
+type ClientRequest struct {
+	command  string
+	start    time.Time
+	end      time.Time
+}
+
+func (r *ClientRequest) StartTime() {
+	r.start = time.Now()
+}
+
+func (r *ClientRequest) EndTime() {
+	r.end = time.Now()
+}
+
+func (r *ClientRequest) Duration() time.Duration {
+	return r.end.Sub(r.start)
+}
+
 /*
 	This file defines the client struct and the new method that is invoked when creating a new client by the main
 */
@@ -29,9 +47,6 @@ type Client struct {
 	messageCodes common.MessageCode
 	logFilePath  string // the path to write the requests and responses time, used for sanity checks
 
-	clientBatchSize int // maximum client side batch size
-	clientBatchTime int // maximum client side batch time in micro seconds
-
 	debugOn    bool // if turned on, the debug messages will be printed on the console
 	debugLevel int  // current debug level
 
@@ -42,8 +57,8 @@ type Client struct {
 	arrivalChan         chan bool                // channel to which the main scheduler adds new request indications, to be consumed by the request generation threads
 	RequestType         string                   // [request] for sending a stream of client requests, [status] for sending a status request
 	OperationType       int                      // status operation type 1 (bootstrap server), 2: print log
-	sentRequests        map[string]*RequestBatch // set of sent client request batches to replicas
-	receivedResponses   map[string]*RequestBatch // set of received client response batches from replicas: a map is used for fast lookup
+	writeRequests  	map[string]*ClientRequest // id of the request sent mapped to the time it was sent
+	readRequests   	map[string]*ClientRequest // id of the request sent mapped to the time it was sent
 	startTime           time.Time                // test start time
 	clientListenAddress string                   // TCP address to which the client listens to new incoming TCP connections
 	keyLen              int                      // length of key
@@ -56,13 +71,7 @@ type Client struct {
 	requestBatch contains a batch that was written to wire, and the time it was written
 */
 
-type RequestBatch struct {
-	batch *common.ClientBatch
-	time  time.Time
-}
-
 const statusTimeout = 5               // time to wait for a status request in seconds
-const numRequestGenerationThreads = 1 // number of  threads that generate client requests upon receiving an arrival indication
 
 const arrivalBufferSize = 1000000     // size of the buffer that collects new request arrivals
 
@@ -70,8 +79,7 @@ const arrivalBufferSize = 1000000     // size of the buffer that collects new re
 	Instantiate a new Client instance, allocate the buffers
 */
 
-func New(id int32, logFilePath string, clientBatchSize int, 
-	     clientBatchTime int, testDuration int, arrivalRate float64, requestType string,
+func New(id int32, logFilePath string, testDuration int, arrivalRate float64, requestType string,
 	     operationType int, debugOn bool, debugLevel int, keyLen int, valLen int, window int64,
 		 incomingChan <-chan common.Message, outgoingChan chan<- common.Message, region string) *Client {
 	return &Client{
@@ -82,8 +90,6 @@ func New(id int32, logFilePath string, clientBatchSize int,
 		outgoingChan:    outgoingChan,
 		messageCodes:    common.GetRPCCodes(),
 		logFilePath:     logFilePath,
-		clientBatchSize: clientBatchSize,
-		clientBatchTime: clientBatchTime,
 
 		debugOn:    debugOn,
 		debugLevel: debugLevel,
@@ -94,8 +100,8 @@ func New(id int32, logFilePath string, clientBatchSize int,
 		arrivalChan:         make(chan bool, arrivalBufferSize),
 		RequestType:         requestType,
 		OperationType:       operationType,
-		sentRequests:        make(map[string]*RequestBatch),
-		receivedResponses:   make(map[string]*RequestBatch),
+		writeRequests:   make(map[string]*ClientRequest),
+		readRequests:    make(map[string]*ClientRequest),
 		startTime:           time.Time{},
 		keyLen:              keyLen,
 		valueLen:            valLen,
@@ -128,10 +134,10 @@ func (cl *Client) Run() {
 		cl.debug("Received message", 0)
 
 		switch replicaMessage.RpcPair.Code {
-		case cl.messageCodes.ClientBatchRpc:
-			clientResponseBatch := replicaMessage.RpcPair.Obj.(*common.ClientBatch)
-			cl.debug("Client response batch from "+strconv.Itoa(int(clientResponseBatch.Sender)), 0)
-			cl.handleClientResponseBatch(clientResponseBatch)
+		case cl.messageCodes.WriteResponse:
+			response := replicaMessage.RpcPair.Obj.(*common.WriteResponse)
+			cl.debug(fmt.Sprintf("Client %d: Received write response from %d", cl.id, response.Sender), 0)
+			cl.handleWriteResponse(response)
 
 		case cl.messageCodes.StatusRPC:
 			clientStatusResponse := replicaMessage.RpcPair.Obj.(*common.Status)

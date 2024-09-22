@@ -21,7 +21,7 @@ clients:
     id: 11
     domain: "client_11.eu"
     port: 8080
-  - region: as
-    id: 12
-    domain: "client_12.as"
-    port: 8080
+  # - region: as
+  #   id: 12
+  #   domain: "client_12.as"
+  #   port: 8080

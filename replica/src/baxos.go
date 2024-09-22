@@ -105,36 +105,36 @@ func (rp *Replica) calculateBackOffTime() int64 {
 
 func (rp *Replica) handleBaxosConsensus(message common.Serializable, code uint8) {
 
-	messageTmpl := "Instance %d, ballot (%d, %d): Received a message of type %s from %d"
+	messageTmpl := "Instance %d: Received a message of type %s from %d"
 	switch code {
 	case rp.messageCodes.PrepareRequest:
 		prepareRequest := message.(*common.PrepareRequest)
 		msgType := "prepare"
-		msg := fmt.Sprintf(messageTmpl, prepareRequest.InstanceNumber, prepareRequest.PrepareBallot.ReplicaId, prepareRequest.PrepareBallot.Number, msgType, prepareRequest.Sender)
+		msg := fmt.Sprintf(messageTmpl, prepareRequest.InstanceNumber, msgType, prepareRequest.Sender)
 		rp.debug(msg, 2)
 		rp.handlePrepare(prepareRequest)
 
 	case rp.messageCodes.PromiseReply:
 		promiseReply := message.(*common.PromiseReply)
-		// msgType := "promise"
-		// msg := fmt.Sprintf(messageTmpl, (*promiseReply).InstanceNumber, (*promiseReply).LastPromisedBallot.ReplicaId, (*promiseReply).LastPromisedBallot.Number, msgType, (*promiseReply).Sender)
-		// rp.debug(msg, 2)
+		msgType := "promise"
+		msg := fmt.Sprintf(messageTmpl, promiseReply.InstanceNumber, msgType, promiseReply.Sender)
+		rp.debug(msg, 2)
 		
 		rp.handlePromise(promiseReply)
 	
 	case rp.messageCodes.ProposeRequest: 
 		proposeRequest := message.(*common.ProposeRequest)
-		// msgType := "propose"
-		// msg := fmt.Sprintf(messageTmpl, proposeRequest.InstanceNumber, proposeRequest.ProposeBallot.ReplicaId, proposeRequest.ProposeBallot.Number, msgType, proposeRequest.Sender)
-		// rp.debug(msg, 2)
+		msgType := "propose"
+		msg := fmt.Sprintf(messageTmpl, proposeRequest.InstanceNumber, msgType, proposeRequest.Sender)
+		rp.debug(msg, 2)
 		rp.handlePropose(proposeRequest)
 	
 
 	case rp.messageCodes.AcceptReply: 
 		acceptReply := message.(*common.AcceptReply)
-		// msgType := "accept"
-		// msg := fmt.Sprintf(messageTmpl, acceptReply.InstanceNumber, acceptReply.AcceptBallot.ReplicaId, acceptReply.AcceptBallot.Number, msgType, acceptReply.Sender)
-		// rp.debug(msg, 2)
+		msgType := "accept"
+		msg := fmt.Sprintf(messageTmpl, acceptReply.InstanceNumber, msgType, acceptReply.Sender)
+		rp.debug(msg, 2)
 		rp.handleAccept(acceptReply)
 	
 	default:

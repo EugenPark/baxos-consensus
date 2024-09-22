@@ -20,9 +20,8 @@ func (cl *Client) handleClientStatusResponse(response *common.Status) {
 */
 
 func (cl *Client) SendStatus(operationType int) {
-	if cl.debugOn {
-		cl.debug("Sending status request to all replicas", 0)
-	}
+	cl.debug("Sending status request to all replicas", 0)
+	
 	for name := range cl.replicaNodes {
 
 		statusRequest := common.Status {

@@ -4,7 +4,6 @@ import (
 	"baxos/common"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -52,9 +51,9 @@ type Client struct {
 
 	finished           bool
 	window             int64
-	numSentBatches     int64
-	numReceivedBatches int64
-	receivedNumMutex   *sync.Mutex
+	// numSentBatches     int64
+	// numReceivedBatches int64
+	// receivedNumMutex   *sync.Mutex
 }
 
 /*
@@ -106,9 +105,9 @@ func New(id int32, logFilePath string, clientBatchSize int,
 		valueLen:            valLen,
 		finished:            false,
 		window:              window,
-		numSentBatches:      0,
-		numReceivedBatches:  0,
-		receivedNumMutex:    &sync.Mutex{},
+		// numSentBatches:      0,
+		// numReceivedBatches:  0,
+		// receivedNumMutex:    &sync.Mutex{},
 	}
 }
 

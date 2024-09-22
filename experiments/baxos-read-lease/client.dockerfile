@@ -16,4 +16,4 @@ COPY experiments/baxos-read-lease/values.yaml configuration
 
 RUN go build -o /baxos/bin/baxos-client /baxos/client
 
-CMD [ "sh", "-c", "/baxos/bin/baxos-client -id=\"${CLIENT_ID}\" -region=${CLIENT_REGION} -logFilePath=/logs/ -config=\"./configuration/values.yaml\" -requestType=request -debugOn -debugLevel=10 -testDuration=30 -batchSize=50 -arrivalRate=1000 -artificialLatency=0 -artificialLatencyMultiplier=10" ]
+CMD [ "sh", "-c", "/baxos/bin/baxos-client -id=\"${CLIENT_ID}\" -region=${CLIENT_REGION} -logFilePath=/logs/ -config=\"./configuration/values.yaml\" -requestType=request -debugOn -debugLevel=10 -testDuration=60 -batchSize=50 -arrivalRate=1000 -artificialLatency=20000 -artificialLatencyMultiplier=10 -batchSize=100" ]

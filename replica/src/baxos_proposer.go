@@ -3,6 +3,7 @@ package src
 import (
 	"baxos/common"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -43,10 +44,6 @@ func (rp *Replica) randomBackOff(instance int64) {
 	rp.incomingRequests = append(rp.incomingRequests, rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue.Requests...)
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulPromises = 0
-	// rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedBallot = &common.Ballot{
-	// 	Number: -1,
-	// 	ReplicaId:     rp.id,
-	// }
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue = &common.ReplicaBatch{}
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = &common.ReplicaBatch{}
@@ -90,9 +87,12 @@ func (rp *Replica) sendPrepare() {
 	nextFreeInstance := rp.baxosConsensus.lastCommittedLogIndex + 1
 	rp.createInstance(int(nextFreeInstance))
 
+	prevHighestAcceptedBallot := rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedBallot
+	prevBallot := rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot
+
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot = 
 		&common.Ballot {
-			Number: rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedBallot.Number + 1,
+			Number: int32(math.Max(float64(prevBallot.Number), float64(prevHighestAcceptedBallot.Number))) + 1,
 			ReplicaId:     rp.id,
 		}
 	
@@ -251,8 +251,8 @@ func (rp *Replica) sendPropose(instance int32) {
 		}
 	}
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d, Ballot (%d, %d): Broadcast propose", instance,
-			rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.Number,
-			rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.ReplicaId), 2)
+			rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.ReplicaId,
+			rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot.Number), 2)
 	
 
 	if rp.baxosConsensus.timer != nil {
@@ -272,7 +272,7 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 		return
 	}
 
-	if message.Decided && !rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided {
+	if message.Decided {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: decided using accept response, hence setting the decided value", message.InstanceNumber), 2)
 		
 		rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided = true
@@ -282,41 +282,40 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 	}
 
 	if rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.numSuccessfulAccepts >= rp.baxosConsensus.quorumSize {
-		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Already enough accepts, hence ignoring the accept", message.InstanceNumber), 1)
+		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Already enough accepts, hence ignoring the accept", message.InstanceNumber), 2)
 		return
 	}
 
-	if message.Accept && message.AcceptBallot.IsEqualTo(rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.highestSeenAcceptedBallot) {
+	if message.Accept && message.AcceptBallot.IsEqualTo(rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.preparedBallot) {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d, Ballot (%d, %d): Received an accept, hence incrementing the accept count",
 			message.InstanceNumber,
 			message.AcceptBallot.ReplicaId,
-			message.AcceptBallot.Number), 1)
+			message.AcceptBallot.Number), 2)
 		
 		rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.numSuccessfulAccepts++
-		if rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.numSuccessfulAccepts == rp.baxosConsensus.quorumSize {
+	}
 
-			if !rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided {
-				rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Received quorum of accepts, hence deciding", message.InstanceNumber), 2)
-				
-				rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided = true
-				rp.baxosConsensus.replicatedLog[message.InstanceNumber].decidedValue = rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.proposedValue
-				rp.updateSMR()
-			}
-			rp.baxosConsensus.isProposing = false
-			rp.baxosConsensus.retries--
-			if rp.baxosConsensus.retries < 0 {
-				rp.baxosConsensus.retries = 0
-			}
-			if rp.baxosConsensus.timer != nil {
-				rp.baxosConsensus.timer.Cancel()
-			}
-			rp.baxosConsensus.timer = nil
-
-			if rp.baxosConsensus.wakeupTimer != nil {
-				rp.baxosConsensus.wakeupTimer.Cancel()
-			}
-			rp.baxosConsensus.wakeupTimer = nil
-			rp.baxosConsensus.isBackingOff = false
+	if rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.numSuccessfulAccepts >= rp.baxosConsensus.quorumSize {
+		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Received quorum of accepts, hence deciding", message.InstanceNumber), 2)
+		
+		rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided = true
+		rp.baxosConsensus.replicatedLog[message.InstanceNumber].decidedValue = rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.proposedValue
+		rp.updateSMR()
+		
+		rp.baxosConsensus.isProposing = false
+		rp.baxosConsensus.retries--
+		if rp.baxosConsensus.retries < 0 {
+			rp.baxosConsensus.retries = 0
 		}
+		if rp.baxosConsensus.timer != nil {
+			rp.baxosConsensus.timer.Cancel()
+		}
+		rp.baxosConsensus.timer = nil
+
+		if rp.baxosConsensus.wakeupTimer != nil {
+			rp.baxosConsensus.wakeupTimer.Cancel()
+		}
+		rp.baxosConsensus.wakeupTimer = nil
+		rp.baxosConsensus.isBackingOff = false
 	}
 }

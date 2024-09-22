@@ -31,7 +31,7 @@ func (rp *Replica) sendClientResponses(responses []*common.ClientBatch) {
 			},
 		}
 		
-		rp.debug("sent client response to "+strconv.Itoa(int(responses[i].Sender)), 0)
+		rp.debug("sent client response to "+ strconv.Itoa(int(responses[i].Sender)), 0)
 		
 	}
 }

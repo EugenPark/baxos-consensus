@@ -19,6 +19,7 @@ func (cl *Client) handleClientResponseBatch(batch *common.ClientBatch) {
 		return
 	}
 
+	// check if key already exists
 	_, ok := cl.receivedResponses[batch.UniqueId]
 	if ok {
 		return
@@ -28,12 +29,11 @@ func (cl *Client) handleClientResponseBatch(batch *common.ClientBatch) {
 		batch: batch,
 		time:  time.Now(), // record the time when the response was received
 	}
-	cl.receivedNumMutex.Lock()
-	cl.numReceivedBatches++
-	cl.receivedNumMutex.Unlock()
-	if cl.debugOn {
-		cl.debug("Added response Batch with id "+batch.UniqueId, 0)
-	}
+	// cl.receivedNumMutex.Lock()
+	// cl.numReceivedBatches++
+	// cl.receivedNumMutex.Unlock()
+	cl.debug("Added response Batch with id " + batch.UniqueId, 0)
+	
 }
 
 /*
@@ -66,14 +66,13 @@ func (cl *Client) startRequestGenerators() {
 		go func(threadNumber int) {
 			localCounter := 0
 			lastSent := time.Now() // used to get how long to wait
-			for {             // this runs forever
-				if cl.finished {
-					return
-				}
+			for !cl.finished {            
 				numRequests := 0
 				var requests []*common.SingleOperation
 				// this loop collects requests until the minimum batch size is met OR the batch time is timeout
-				for !(numRequests >= cl.clientBatchSize || (time.Since(lastSent).Microseconds() > int64(cl.clientBatchTime) && numRequests > 0)) {
+				isMinimumBatchSizeMet := numRequests >= cl.clientBatchSize
+				isBatchTimedOut := time.Since(lastSent).Microseconds() > int64(cl.clientBatchTime) && numRequests > 0
+				for !(isMinimumBatchSizeMet || isBatchTimedOut) {
 					<-cl.arrivalChan // keep collecting new requests arrivals
 					requests = append(requests, &common.SingleOperation{
 						Command: fmt.Sprintf("%d%v%v", rand.Intn(2),
@@ -82,12 +81,12 @@ func (cl *Client) startRequestGenerators() {
 					})
 					numRequests++
 				}
-				cl.receivedNumMutex.Lock()
-				if (cl.numSentBatches - cl.numReceivedBatches) > cl.window {
-					cl.receivedNumMutex.Unlock()
-					continue
-				}
-				cl.receivedNumMutex.Unlock()
+				// cl.receivedNumMutex.Lock()
+				// if (cl.numSentBatches - cl.numReceivedBatches) > cl.window {
+				// 	cl.receivedNumMutex.Unlock()
+				// 	continue
+				// }
+				// cl.receivedNumMutex.Unlock()
 
 				for _, replicaNode := range cl.replicaNodes {
 
@@ -124,7 +123,7 @@ func (cl *Client) startRequestGenerators() {
 					Sender:   int64(cl.id),
 				}
 
-				cl.numSentBatches++
+				// cl.numSentBatches++
 				localCounter++
 				lastSent = time.Now()
 

@@ -9,7 +9,7 @@ import (
 	"github.com/montanaflynn/stats"
 )
 
-const CLIENT_TIMEOUT = 5000000
+const CLIENT_TIMEOUT = 500000000
 
 /*
 	calculate the number of elements in the 2d array

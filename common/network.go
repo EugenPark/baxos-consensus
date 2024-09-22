@@ -219,7 +219,9 @@ func (n *Network) SendMessage(message Message) {
 	to := n.nodes[message.To]
 
 	// artificial latency to simulate network delay in geo-distributed systems
-	if from.region == to.region {
+	if message.From == message.To {
+		time.Sleep(0)
+	} else if from.region == to.region {
 		time.Sleep(latency)
 	} else {
 		time.Sleep(increasedLatency)

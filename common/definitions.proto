@@ -7,6 +7,11 @@ option go_package = "common/";
   Client response batch is sent by a replica node
 */
 
+
+
+
+
+
 message SingleOperation {
   string command = 1;
 }

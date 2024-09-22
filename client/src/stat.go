@@ -12,32 +12,6 @@ import (
 const CLIENT_TIMEOUT = 500000000
 
 /*
-	calculate the number of elements in the 2d array
-*/
-
-func (cl *Client) getNumberOfSentRequests(requests [][]requestBatch) int {
-	count := 0
-	for i := 0; i < numRequestGenerationThreads; i++ {
-		sentRequestArrayOfI := requests[i] // requests[i] is an array of batch of requests
-		for j := 0; j < len(sentRequestArrayOfI); j++ {
-			count += len(sentRequestArrayOfI[j].batch.Requests)
-		}
-	}
-	return count
-}
-
-/*
-	Add value N to list, M times
-*/
-
-func (cl *Client) addValueNToArrayMTimes(list []int64, N int64, M int) []int64 {
-	for i := 0; i < M; i++ {
-		list = append(list, N)
-	}
-	return list
-}
-
-/*
 	Map the request with the response batch
 	Compute the time taken for each request
 	Computer the error rate
@@ -47,7 +21,7 @@ func (cl *Client) addValueNToArrayMTimes(list []int64, N int64, M int) []int64 {
 */
 
 func (cl *Client) computeStats() {
-	logFilePath := cl.logFilePath + strconv.Itoa(int(cl.id)) + ".txt"
+	logFilePath := fmt.Sprintf("%s%d.txt", cl.logFilePath, cl.id)
 	cl.debug(logFilePath, 0)
 	f, err := os.Create(logFilePath) // log file
 	
@@ -55,49 +29,34 @@ func (cl *Client) computeStats() {
 		panic("Error creating the output log file: " + err.Error())
 	}
 	defer f.Close()
+	numTotalSentRequests := len(cl.sentRequests)
+	numTotalResponses := len(cl.receivedResponses)
 
-	numTotalSentRequests := cl.getNumberOfSentRequests(cl.sentRequests)
 	var latencyList []int64 // contains the time duration spent requests in micro seconds
-	responses := 0
-	for i := 0; i < numRequestGenerationThreads; i++ {
-		fmt.Printf("Calculating stats for thread %d \n", i)
-		for j := 0; j < len(cl.sentRequests[i]); j++ {
-			batch := cl.sentRequests[i][j]
-			batchId := batch.batch.UniqueId
-			matchingResponseBatch, ok := cl.receivedResponses[batchId]
-			if ok {
-				responseBatch := matchingResponseBatch
-				startTime := batch.time
-				endTime := responseBatch.time
-				batchLatency := endTime.Sub(startTime).Microseconds()
-				if batchLatency < CLIENT_TIMEOUT {
-					latencyList = cl.addValueNToArrayMTimes(latencyList, batchLatency, len(batch.batch.Requests))
-					cl.printRequests(batch.batch, startTime.Sub(cl.startTime).Microseconds(), endTime.Sub(cl.startTime).Microseconds(), f)
-					responses += len(batch.batch.Requests)
-				} else {
-					latencyList = cl.addValueNToArrayMTimes(latencyList, CLIENT_TIMEOUT, len(batch.batch.Requests))
-					cl.printRequests(batch.batch, startTime.Sub(cl.startTime).Microseconds(), startTime.Sub(cl.startTime).Microseconds()+CLIENT_TIMEOUT, f)
-				}
-			} else {
-				startTime := batch.time
-				batchLatency := CLIENT_TIMEOUT
-				latencyList = cl.addValueNToArrayMTimes(latencyList, int64(batchLatency), len(batch.batch.Requests))
-				cl.printRequests(batch.batch, startTime.Sub(cl.startTime).Microseconds(), startTime.Sub(cl.startTime).Microseconds()+CLIENT_TIMEOUT, f)
-			}
 
+	for batchId, responseBatch := range cl.receivedResponses {
+		sentBatch, ok := cl.sentRequests[batchId];
+		if !ok {
+			cl.debug("Response received for a batch that was not sent", 0)
+			panic("should not happen")
 		}
+
+		batchLatency := responseBatch.time.Sub(sentBatch.time).Milliseconds()
+		latencyList = append(latencyList, batchLatency)
+		cl.printRequests(sentBatch.batch, sentBatch.time.Sub(cl.startTime).Milliseconds(), responseBatch.time.Sub(cl.startTime).Milliseconds(), f)
 	}
 
 	medianLatency, _ := stats.Median(cl.getFloat64List(latencyList))
 	percentile99, _ := stats.Percentile(cl.getFloat64List(latencyList), 99.0) // tail latency
 	duration := cl.testDuration
-	errorRate := (numTotalSentRequests - responses) * 100.0 / numTotalSentRequests
+	errorRate := (numTotalSentRequests - numTotalResponses) * 100.0 / len(cl.sentRequests)
+	requestsPerSecond := float64(numTotalResponses) / float64(duration)
 
-	fmt.Printf("Total time := %v seconds\n", duration)
-	fmt.Printf("Throughput (successfully committed requests) := %v requests per second\n", responses/duration)
-	fmt.Printf("Median Latency := %v micro seconds per request\n", medianLatency)
-	fmt.Printf("99 pecentile latency := %v micro seconds per request\n", percentile99)
-	fmt.Printf("Error Rate := %v \n", float64(errorRate))
+	fmt.Printf("Total time := %d seconds\n", duration)
+	fmt.Printf("Throughput (successfully committed requests) := %f requests per second\n", requestsPerSecond)
+	fmt.Printf("Median Latency := %.2f milliseconds per request\n", medianLatency)
+	fmt.Printf("99 pecentile latency := %.2f milliseconds per request\n", percentile99)
+	fmt.Printf("Error Rate := %d \n", errorRate)
 }
 
 /*

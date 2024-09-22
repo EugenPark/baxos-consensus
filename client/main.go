@@ -15,7 +15,7 @@ func main() {
 	batchSize := flag.Int("batchSize", 50, "client batch size")
 	batchTime := flag.Int("batchTime", 2000, "maximum time to wait for collecting a batch of requests in micro seconds")
 	testDuration := flag.Int("testDuration", 60, "test duration in seconds")
-	arrivalRate := flag.Int("arrivalRate", 1000, "poisson arrival rate in requests per second")
+	arrivalRate := flag.Float64("arrivalRate", 1000, "poisson arrival rate in requests per second")
 	requestType := flag.String("requestType", "status", "request type: [status , request]")
 	operationType := flag.Int("operationType", 1, "Type of operation for a status request: 1 (bootstrap server), 2: (print log)")
 	debugOn := flag.Bool("debugOn", false, "false or true")

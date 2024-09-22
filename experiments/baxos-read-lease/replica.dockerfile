@@ -26,4 +26,4 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
 
 RUN go build -o /baxos/bin/baxos-replica /baxos/replica
 
-CMD [ "sh", "-c", "/baxos/bin/baxos-replica -id=\"${REPLICA_ID}\" -region=${REPLICA_REGION} -logFilePath=/logs/ -config=\"./configuration/values.yaml\" -debugLevel=2 -roundTripTime=400000 -artificialLatency=20000 -artificialLatencyMultiplier=10 -batchSize=100" ]
+CMD [ "sh", "-c", "/baxos/bin/baxos-replica -id=\"${REPLICA_ID}\" -region=${REPLICA_REGION} -logFilePath=/logs/ -config=\"./configuration/values.yaml\" -debugLevel=2 -roundTripTime=400000 -artificialLatency=20000 -artificialLatencyMultiplier=10 -batchSize=1" ]

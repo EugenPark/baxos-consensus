@@ -33,6 +33,9 @@ func (cl *Client) computeStats() {
 	var latencyList []int64 // contains the time duration spent requests in micro seconds
 
 	for _, requestTime := range cl.writeRequests {
+		if requestTime.end.IsZero() {
+			continue
+		}
 		latencyList = append(latencyList, int64(requestTime.Duration().Milliseconds()))
 		cl.printRequests(requestTime.command, requestTime.start.Sub(cl.startTime).Milliseconds(), requestTime.end.Sub(cl.startTime).Milliseconds(), f)
 	}
@@ -40,8 +43,12 @@ func (cl *Client) computeStats() {
 	medianLatency, _ := stats.Median(cl.getFloat64List(latencyList))
 	percentile99, _ := stats.Percentile(cl.getFloat64List(latencyList), 99.0) // tail latency
 	duration := cl.testDuration
-	// needs fixing since write request times is not the total number of received responses
-	errorRate := (numTotalSentRequests - numTotalResponses) * 100.0 / numTotalSentRequests
+	var errorRate int
+	if numTotalSentRequests == 0 {
+		errorRate = 0
+	} else {
+		errorRate = (numTotalSentRequests - numTotalResponses) * 100 / numTotalSentRequests
+	}
 	requestsPerSecond := float64(numTotalResponses) / float64(duration)
 
 	fmt.Printf("Total time := %d seconds\n", duration)

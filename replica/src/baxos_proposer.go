@@ -208,13 +208,14 @@ func (rp *Replica) sendPropose(instance int32) {
 	if rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedBallot.Number != -1 {
 		proposeValue = rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Highest seen accepted value is proposed %v", instance, proposeValue), 1)
+	} else if len(rp.incomingRequests) > 0 {
+		proposeValue, rp.incomingRequests = rp.incomingRequests[0], rp.incomingRequests[1:]
 	} else {
-		if len(rp.incomingRequests) <= 0 || rp.incomingRequests[0].UniqueId == ""  {
-			rp.debug(fmt.Sprintf("PROPOSER: Instance %d: No valid incoming requests, hence not proposing now", instance), 1)
-			return
-		}
-		proposeValue = rp.incomingRequests[0]
-		rp.incomingRequests = rp.incomingRequests[1:]
+		proposeValue = &common.WriteRequest{}
+	}
+
+	if proposeValue.UniqueId == "" {
+		proposeValue.Sender = -1
 	}
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = proposeValue

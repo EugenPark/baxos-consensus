@@ -14,6 +14,10 @@ func (rp *Replica) handleWriteRequest(request *common.WriteRequest) {
 
 // send back the client responses
 func (rp *Replica) sendClientResponse(response *common.WriteResponse, to int32) {
+	if to == -1 {
+		rp.debug("Ignore empty decided value", 0)
+		return
+	}
 	rp.outgoingChan <- common.Message {
 		From: rp.id,
 		To:   to,

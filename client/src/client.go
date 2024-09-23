@@ -44,6 +44,8 @@ type Client struct {
 	incomingChan <-chan common.Message // used to collect ClientBatch messages for responses and Status messages for responses
 	outgoingChan chan<- common.Message // used to send ClientBatch messages to replicas
 
+	writeRatio float64 // ratio of write requests vs read requests
+
 	messageCodes common.MessageCode
 	logFilePath  string // the path to write the requests and responses time, used for sanity checks
 

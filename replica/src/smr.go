@@ -8,8 +8,40 @@ import (
 // add the client batch to buffer and propose
 
 func (rp *Replica) handleWriteRequest(request *common.WriteRequest) {
-	rp.incomingRequests = append(rp.incomingRequests, request)
+	rp.incomingWriteRequests = append(rp.incomingWriteRequests, request)
 	rp.tryPropose()
+}
+
+func (rp *Replica) handleReadRequest(request *common.ReadRequest) {
+	rp.incomingReadRequests[request.UniqueId] = &ReadRequestInstance{
+		responses: make([]*common.ReadPromise, 0),
+	}
+	rp.sendReadPrepare(request)
+}
+
+func (rp *Replica) sendClientReadResponse(uniqueId string, to int32) {
+	var latestIndex int64
+	latestIndex = -1
+	latestCommand := &common.Command{}
+
+	for _, response := range rp.incomingReadRequests[uniqueId].responses {
+		if response.Index > latestIndex {
+			latestIndex = response.Index
+			latestCommand = response.Command
+		}
+	}
+
+	rp.outgoingChan <- common.Message{
+		From: rp.id,
+		To:   to,
+		RpcPair: &common.RPCPair{
+			Code: rp.messageCodes.ReadResponse,
+			Obj:  &common.ReadResponse{
+				UniqueId: uniqueId,
+				Command:  latestCommand,
+			},
+		},
+	}
 }
 
 // send back the client responses

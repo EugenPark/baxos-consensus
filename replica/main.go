@@ -43,6 +43,14 @@ func main() {
 			Code:   common.GetRPCCodes().WriteResponse,
 		},
 		{
+			MsgObj: new(common.ReadRequest),
+			Code:   common.GetRPCCodes().ReadRequest,
+		},
+		{
+			MsgObj: new(common.ReadResponse),
+			Code:   common.GetRPCCodes().ReadResponse,
+		},
+		{
 			MsgObj: new(common.Status),
 			Code:   common.GetRPCCodes().StatusRPC,
 		},
@@ -61,6 +69,14 @@ func main() {
 		{
 			MsgObj: new(common.AcceptReply), 
 			Code: common.GetRPCCodes().AcceptReply,
+		},
+		{
+			Code: common.GetRPCCodes().ReadPrepare,
+			MsgObj: new(common.ReadPrepare),
+		},
+		{
+			Code: common.GetRPCCodes().ReadPromise,
+			MsgObj: new(common.ReadPromise),
 		},
 	}
 

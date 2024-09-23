@@ -37,6 +37,10 @@ type BaxosInstance struct {
 	decided              bool
 }
 
+type ReadRequestInstance struct {
+	responses []*common.ReadPromise
+}
+
 /*
 	Baxos struct defines the replica wide consensus variables
 */

@@ -141,3 +141,28 @@ func (rp *Replica) handlePropose(message *common.ProposeRequest) {
 		}
 	}
 }
+
+func (rp *Replica) handleReadPrepare(prepare *common.ReadPrepare, from int32) {
+	lastDecidedCommand := &common.Command{}
+	index := rp.baxosConsensus.lastCommittedLogIndex
+
+	if index >= 0 {
+		lastDecidedCommand = rp.baxosConsensus.replicatedLog[rp.baxosConsensus.lastCommittedLogIndex].decidedValue.Command
+	}
+	
+	rp.outgoingChan <- common.Message {
+		From: rp.id,
+		To:   from,
+		RpcPair: &common.RPCPair {
+			Code: rp.messageCodes.ReadPromise,
+			Obj:  &common.ReadPromise {
+				UniqueId: prepare.UniqueId,
+				Command: lastDecidedCommand,
+				Index:  int64(index),
+				Sender: prepare.Sender,
+			},
+		},
+	}
+
+	rp.debug(fmt.Sprintf("ACCEPTOR: Sent read promise to %d for id %s", prepare.Sender, prepare.UniqueId), 0)
+}

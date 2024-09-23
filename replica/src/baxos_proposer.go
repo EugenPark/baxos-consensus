@@ -39,7 +39,7 @@ func (rp *Replica) randomBackOff(instance int64) {
 	rp.baxosConsensus.retries++
 
 	// prepend the value
-	rp.incomingRequests = append([]*common.WriteRequest{rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue}, rp.incomingRequests...)
+	rp.incomingWriteRequests = append([]*common.WriteRequest{rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue}, rp.incomingWriteRequests...)
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulPromises = 0
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue = &common.WriteRequest{}
@@ -182,9 +182,37 @@ func (rp *Replica) tryPropose() {
 
 	rp.sendPrepare()
 	rp.baxosConsensus.isProposing = true
-
 }
 
+func (rp *Replica) sendReadPrepare(request *common.ReadRequest) {
+	for _, replicaNode := range rp.replicaNodes {
+		rp.outgoingChan <- common.Message {
+			From:    rp.id,
+			To:      replicaNode.id,
+			RpcPair: &common.RPCPair{Code: rp.messageCodes.ReadPrepare, Obj: &common.ReadPrepare{
+				UniqueId: request.UniqueId,
+				Sender:  request.Sender,
+			}},
+		}
+	}
+}
+
+func (rp *Replica) handleReadPromise(message *common.ReadPromise) {
+	uniqueId := message.UniqueId
+	rp.debug(fmt.Sprintf("READER: UniqueId %s: Received a promise from %d", message.UniqueId, message.Sender), 1)
+
+
+	if int32(len(rp.incomingReadRequests[uniqueId].responses)) >= rp.baxosConsensus.quorumSize {
+		rp.debug(fmt.Sprintf("READER: UniqueId %s: Already received enough promises, hence ignoring the promise", uniqueId), 1)
+		return
+	}
+
+	rp.incomingReadRequests[uniqueId].responses = append(rp.incomingReadRequests[uniqueId].responses, message)
+	if int32(len(rp.incomingReadRequests[uniqueId].responses)) == rp.baxosConsensus.quorumSize {
+		rp.debug(fmt.Sprintf("READER: UniqueId %s: Received quorum of promises, hence sending the read response", uniqueId), 1)
+		rp.sendClientReadResponse(uniqueId, int32(message.Sender))
+	}
+}
 /*
 	propose a command for instance
 */
@@ -208,8 +236,8 @@ func (rp *Replica) sendPropose(instance int32) {
 	if rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedBallot.Number != -1 {
 		proposeValue = rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.highestSeenAcceptedValue
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Highest seen accepted value is proposed %v", instance, proposeValue), 1)
-	} else if len(rp.incomingRequests) > 0 {
-		proposeValue, rp.incomingRequests = rp.incomingRequests[0], rp.incomingRequests[1:]
+	} else if len(rp.incomingWriteRequests) > 0 {
+		proposeValue, rp.incomingWriteRequests = rp.incomingWriteRequests[0], rp.incomingWriteRequests[1:]
 	} else {
 		proposeValue = &common.WriteRequest{}
 	}

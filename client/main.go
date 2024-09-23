@@ -15,12 +15,12 @@ func main() {
 	testDuration := flag.Int("testDuration", 60, "test duration in seconds")
 	arrivalRate := flag.Float64("arrivalRate", 1000, "poisson arrival rate in requests per second")
 	requestType := flag.String("requestType", "status", "request type: [status , request]")
+	writeRequestRatio := flag.Float64("writeRequestRatio", 0.5, "ratio of write requests vs read requests")
 	operationType := flag.Int("operationType", 1, "Type of operation for a status request: 1 (bootstrap server), 2: (print log)")
 	debugOn := flag.Bool("debugOn", false, "false or true")
 	debugLevel := flag.Int("debugLevel", -1, "debug level int")
 	keyLen := flag.Int("keyLen", 8, "key length")
 	valLen := flag.Int("valLen", 8, "value length")
-	window := flag.Int64("window", 1000, "number of out standing client batches")
 	artificialLatency := flag.Int("artificialLatency", 20000, "Duration of artificial latency when sending a message in micro seconds")
 	artificialLatencyMultiplier := flag.Int("artificialLatencyMultiplier", 10, "By how much should the artificial latency be multiplied when sending to a different region")
 
@@ -41,6 +41,14 @@ func main() {
 			Code:   common.GetRPCCodes().WriteResponse,
 		},
 		{
+			MsgObj: new(common.ReadRequest),
+			Code:   common.GetRPCCodes().ReadRequest,
+		},
+		{
+			MsgObj: new(common.ReadResponse),
+			Code:   common.GetRPCCodes().ReadResponse,
+		},
+		{
 			MsgObj: new(common.Status),
 			Code:   common.GetRPCCodes().StatusRPC,
 		},
@@ -52,7 +60,7 @@ func main() {
 	network := common.NewNetwork(int32(*id), (*debugLevel == 0 && *debugOn), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 	
-	cl := src.New(int32(*id), *logFilePath, *testDuration, *arrivalRate, *requestType, *operationType, *debugOn, *debugLevel, *keyLen, *valLen, *window, incomingChan, outgoingChan, *region)
+	cl := src.New(int32(*id), *logFilePath, *testDuration, *arrivalRate, *requestType, *writeRequestRatio, *operationType, *debugOn, *debugLevel, *keyLen, *valLen, incomingChan, outgoingChan, *region)
 	cl.Init(cfg)
 
 	go network.Run()

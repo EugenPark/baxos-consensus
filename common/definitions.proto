@@ -28,6 +28,18 @@ message WriteResponse {
   int64 sender = 3;
 }
 
+message ReadPrepare {
+  string unique_id = 1;
+  int64 sender = 2;
+}
+
+message ReadPromise {
+  string unique_id = 1;
+  Command command = 2;
+  int64 sender = 3;
+  int64 index = 4;
+}
+
 /*
   Status is sent by a client to inform replicas about actions that include, but not limited to
   1. To establish connections to other nodes

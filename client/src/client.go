@@ -13,7 +13,6 @@ type ReplicaNode struct {
 }
 
 type ClientRequest struct {
-	command  string
 	start    time.Time
 	end      time.Time
 }
@@ -44,7 +43,7 @@ type Client struct {
 	incomingChan <-chan common.Message // used to collect ClientBatch messages for responses and Status messages for responses
 	outgoingChan chan<- common.Message // used to send ClientBatch messages to replicas
 
-	writeRatio float64 // ratio of write requests vs read requests
+	writeRequestRatio float64 // ratio of write requests vs read requests
 
 	messageCodes common.MessageCode
 	logFilePath  string // the path to write the requests and responses time, used for sanity checks
@@ -81,8 +80,8 @@ const arrivalBufferSize = 1000000     // size of the buffer that collects new re
 	Instantiate a new Client instance, allocate the buffers
 */
 
-func New(id int32, logFilePath string, testDuration int, arrivalRate float64, requestType string,
-	     operationType int, debugOn bool, debugLevel int, keyLen int, valLen int, window int64,
+func New(id int32, logFilePath string, testDuration int, arrivalRate float64, requestType string, writeRequestRatio float64,
+	     operationType int, debugOn bool, debugLevel int, keyLen int, valLen int,
 		 incomingChan <-chan common.Message, outgoingChan chan<- common.Message, region string) *Client {
 	return &Client{
 		id:              id,
@@ -101,6 +100,7 @@ func New(id int32, logFilePath string, testDuration int, arrivalRate float64, re
 		arrivalTimeChan:     make(chan int64, arrivalBufferSize),
 		arrivalChan:         make(chan bool, arrivalBufferSize),
 		RequestType:         requestType,
+		writeRequestRatio:   writeRequestRatio,
 		OperationType:       operationType,
 		writeRequests:   make(map[string]*ClientRequest),
 		readRequests:    make(map[string]*ClientRequest),
@@ -140,6 +140,11 @@ func (cl *Client) Run() {
 			response := replicaMessage.RpcPair.Obj.(*common.WriteResponse)
 			cl.debug(fmt.Sprintf("Client %d: Received write response from %d", cl.id, response.Sender), 0)
 			cl.handleWriteResponse(response)
+
+		case cl.messageCodes.ReadResponse:
+			response := replicaMessage.RpcPair.Obj.(*common.ReadResponse)
+			cl.debug(fmt.Sprintf("Client %d: Received read response from %d", cl.id, response.Sender), 0)
+			cl.handleReadResponse(response)
 
 		case cl.messageCodes.StatusRPC:
 			clientStatusResponse := replicaMessage.RpcPair.Obj.(*common.Status)

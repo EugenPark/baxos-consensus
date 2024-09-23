@@ -44,7 +44,8 @@ type Replica struct {
 
 	benchmarkMode int        // 0 for resident K/V store, 1 for redis
 
-	incomingRequests []*common.WriteRequest // incoming requests
+	incomingWriteRequests []*common.WriteRequest // incoming write requests
+	incomingReadRequests  map[string]*ReadRequestInstance  // incoming read requests
 
 	asynchronousReplicas   map[int][]int // for each time based epoch, the minority replicas that are attacked
 	timeEpochSize          int           // how many ms for a given time epoch
@@ -77,7 +78,8 @@ func New(id int32, logFilePath string, debugOn bool, debugLevel int, benchmarkMo
 
 		logPrinted:       false,
 		benchmarkMode:    benchmarkMode,
-		incomingRequests: make([]*common.WriteRequest, 0),
+		incomingWriteRequests: make([]*common.WriteRequest, 0),
+		incomingReadRequests:  make(map[string]*ReadRequestInstance),
 
 		asynchronousReplicas:   make(map[int][]int),
 		timeEpochSize:          timeEpochSize,
@@ -143,6 +145,21 @@ func (rp *Replica) Run() {
 				writeRequest := replicaMessage.RpcPair.Obj.(*common.WriteRequest)
 				rp.debug(fmt.Sprintf("Client write request message from %#v", writeRequest.Sender), 0)
 				rp.handleWriteRequest(writeRequest)
+
+			case rp.messageCodes.ReadRequest:
+				readRequest := replicaMessage.RpcPair.Obj.(*common.ReadRequest)
+				rp.debug(fmt.Sprintf("Client read request message from %#v", readRequest.Sender), 0)
+				rp.handleReadRequest(readRequest)
+
+			case rp.messageCodes.ReadPrepare:
+				readPrepare := replicaMessage.RpcPair.Obj.(*common.ReadPrepare)
+				rp.debug(fmt.Sprintf("Read prepare message from %#v", readPrepare.Sender), 0)
+				rp.handleReadPrepare(readPrepare, replicaMessage.From)
+
+			case rp.messageCodes.ReadPromise:
+				readPromise := replicaMessage.RpcPair.Obj.(*common.ReadPromise)
+				rp.debug(fmt.Sprintf("Read promise message from %#v", readPromise.Sender), 0)
+				rp.handleReadPromise(readPromise)
 
 			default:
 				rp.debug("Baxos consensus message", 2)

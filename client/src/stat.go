@@ -31,17 +31,31 @@ func (cl *Client) computeStats() {
 	numTotalResponses := cl.getNumberOfReceivedWriteRequests()
 
 	var latencyList []int64 // contains the time duration spent requests in micro seconds
+	var readLatencyList []int64
 
 	for _, requestTime := range cl.writeRequests {
 		if requestTime.end.IsZero() {
 			continue
 		}
 		latencyList = append(latencyList, int64(requestTime.Duration().Milliseconds()))
-		cl.printRequests(requestTime.command, requestTime.start.Sub(cl.startTime).Milliseconds(), requestTime.end.Sub(cl.startTime).Milliseconds(), f)
+		// TODO: print the request command to the log file
+		cl.printRequests("", requestTime.start.Sub(cl.startTime).Milliseconds(), requestTime.end.Sub(cl.startTime).Milliseconds(), f)
+	}
+
+	for _, requestTime := range cl.readRequests {
+		if requestTime.end.IsZero() {
+			continue
+		}
+		readLatencyList = append(readLatencyList, int64(requestTime.Duration().Milliseconds()))
+		// TODO: print the request command to the log file
+		// cl.printRequests("", requestTime.start.Sub(cl.startTime).Milliseconds(), requestTime.end.Sub(cl.startTime).Milliseconds(), f)
 	}
 
 	medianLatency, _ := stats.Median(cl.getFloat64List(latencyList))
 	percentile99, _ := stats.Percentile(cl.getFloat64List(latencyList), 99.0) // tail latency
+
+	readMedianLatency, _ := stats.Median(cl.getFloat64List(readLatencyList))
+	readPercentile99, _ := stats.Percentile(cl.getFloat64List(readLatencyList), 99.0) // tail latency
 	duration := cl.testDuration
 	var errorRate int
 	if numTotalSentRequests == 0 {
@@ -51,11 +65,26 @@ func (cl *Client) computeStats() {
 	}
 	requestsPerSecond := float64(numTotalResponses) / float64(duration)
 
+	var readResponseCount int
+	for _, requestTime := range cl.readRequests {
+		if !requestTime.end.IsZero() {
+			readResponseCount++
+		}
+	}
+
+
+
 	fmt.Printf("Total time := %d seconds\n", duration)
 	fmt.Printf("Throughput (successfully committed requests) := %f requests per second\n", requestsPerSecond)
 	fmt.Printf("Median Latency := %.2f milliseconds per request\n", medianLatency)
 	fmt.Printf("99 pecentile latency := %.2f milliseconds per request\n", percentile99)
 	fmt.Printf("Error Rate := %d \n", errorRate)
+	fmt.Printf("Total number of requests := %d\n", numTotalSentRequests)
+	fmt.Printf("Total number of responses := %d\n", numTotalResponses)
+	fmt.Printf("Total number of read requests sent := %d\n", len(cl.readRequests))
+	fmt.Printf("Total number of read responses received := %d\n", readResponseCount)
+	fmt.Printf("Median Latency for read requests := %.2f milliseconds per request\n", readMedianLatency)
+	fmt.Printf("99 pecentile latency for read requests := %.2f milliseconds per request\n", readPercentile99)
 }
 
 func (cl *Client) getNumberOfReceivedWriteRequests() int {

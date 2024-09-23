@@ -31,6 +31,8 @@ type MessageCode struct {
 	PromiseReply    uint8
 	ProposeRequest  uint8
 	AcceptReply     uint8
+	ReadPrepare     uint8
+	ReadPromise    	uint8
 }
 
 /*
@@ -48,6 +50,8 @@ func GetRPCCodes() MessageCode {
 		PromiseReply:    7,
 		ProposeRequest:  8,
 		AcceptReply:     9,
+		ReadPrepare:    10,
+		ReadPromise:    11,
 	}
 }
 
@@ -91,6 +95,65 @@ func unmarshalMessage(wire io.Reader, m proto.Message) error {
 	return nil
 }
 
+// ReadRequest wrapper
+
+func (t *ReadRequest) Marshal(wire io.Writer) error {
+	return marshalMessage(wire, t)
+}
+
+func (t *ReadRequest) Unmarshal(wire io.Reader) error {
+	return unmarshalMessage(wire, t)
+}
+
+func (t *ReadRequest) New() Serializable {
+	return new(ReadRequest)
+}
+
+// ReadPrepare wrapper
+
+func (t *ReadPrepare) Marshal(wire io.Writer) error {
+	return marshalMessage(wire, t)
+}
+
+func (t *ReadPrepare) Unmarshal(wire io.Reader) error {
+	return unmarshalMessage(wire, t)
+}
+
+func (t *ReadPrepare) New() Serializable {
+	return new(ReadPrepare)
+}
+
+// ReadPromise wrapper
+
+func (t *ReadPromise) Marshal(wire io.Writer) error {
+	return marshalMessage(wire, t)
+}
+
+func (t *ReadPromise) Unmarshal(wire io.Reader) error {
+	return unmarshalMessage(wire, t)
+}
+
+func (t *ReadPromise) New() Serializable {
+	return new(ReadPromise)
+}
+
+
+// ReadResponse wrapper
+
+func (t *ReadResponse) Marshal(wire io.Writer) error {
+	return marshalMessage(wire, t)
+}
+
+func (t *ReadResponse) Unmarshal(wire io.Reader) error {
+	return unmarshalMessage(wire, t)
+}
+
+func (t *ReadResponse) New() Serializable {
+	return new(ReadResponse)
+}
+
+// WriteRequest wrapper
+
 func (t *WriteRequest) Marshal(wire io.Writer) error {
 	return marshalMessage(wire, t)
 }
@@ -102,6 +165,8 @@ func (t *WriteRequest) Unmarshal(wire io.Reader) error {
 func (t *WriteRequest) New() Serializable {
 	return new(WriteRequest)
 }
+
+// WriteResponse wrapper
 
 func (t *WriteResponse) Marshal(wire io.Writer) error {
 	return marshalMessage(wire, t)

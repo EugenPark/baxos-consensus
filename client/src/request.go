@@ -28,8 +28,32 @@ func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 
 	writeRequest.EndTime()
 
-	cl.debug("Added write response with id " + id, 0)
+	cl.debug("Added write response with id " + id, 1)
 	
+}
+
+func (cl *Client) handleReadResponse(response *common.ReadResponse) {
+	if cl.finished {
+		return
+	}
+
+	id := response.UniqueId
+
+	// check if key already exists
+	readRequest, ok := cl.readRequests[id]
+	if !ok {
+		cl.debug(fmt.Sprintf("Received response for a read request with id %s that was not sent", id), 0)
+		panic("should not happen")
+	}
+
+	if !readRequest.end.IsZero() {
+		cl.debug(fmt.Sprintf("Already received read response for this id %s", id), 0)
+		return
+	}
+
+	readRequest.EndTime()
+
+	cl.debug("Added read response with id " + id, 1)
 }
 
 /*
@@ -40,7 +64,7 @@ func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 */
 
 func (cl *Client) SendRequests() {
-	go cl.generateWriteRequests()
+	go cl.generateRequests()
 	go cl.startScheduler()
 	time.Sleep(time.Duration(cl.testDuration) * time.Second)
 	cl.finished = true
@@ -48,27 +72,58 @@ func (cl *Client) SendRequests() {
 	cl.computeStats()
 }
 
-func (cl *Client) generateWriteRequests() {
+func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
+
+	command := fmt.Sprintf("%d%v%v", rand.Intn(2), cl.RandString(cl.keyLen), cl.RandString(cl.valueLen))
+	// create a new client batch
+	writeRequest := common.WriteRequest {
+		UniqueId: uniqueId, // this is a unique string id,
+		Command: &common.Command {
+			Value: command,
+		},
+		Sender:   int64(cl.id),
+	}
+
+	requestTime := ClientRequest {}
+	requestTime.StartTime()
+
+	cl.writeRequests[uniqueId] = &requestTime
+	
+	return common.RPCPair {
+		Code: cl.messageCodes.WriteRequest,
+		Obj:  &writeRequest,
+	}
+}
+
+func (cl *Client) generateReadRPCPair(uniqueId string) common.RPCPair {
+	requestTime := ClientRequest {}
+	requestTime.StartTime()
+	cl.readRequests[uniqueId] = &requestTime
+	return common.RPCPair {
+		Code: cl.messageCodes.ReadRequest,
+		Obj:  &common.ReadRequest {
+			UniqueId: uniqueId,
+			Sender:  int64(cl.id),
+		},
+	}
+}
+
+func (cl *Client) generateRequests() {
 	requestCounter := 0
 	for !cl.finished {            		
 		<-cl.arrivalChan
 		cl.debug("New request arrival", 0)
 
-		command := fmt.Sprintf("%d%v%v", rand.Intn(2), cl.RandString(cl.keyLen), cl.RandString(cl.valueLen))
 		uniqueId := fmt.Sprintf("%d.%d", cl.id, requestCounter)
 		
-		// create a new client batch
-		writeRequest := common.WriteRequest {
-			UniqueId: uniqueId, // this is a unique string id,
-			Command: &common.Command {
-				Value: command,
-			},
-			Sender:   int64(cl.id),
-		}
-		
-		rpcPair := common.RPCPair {
-			Code: cl.messageCodes.WriteRequest,
-			Obj:  &writeRequest,
+		var rpcPair common.RPCPair
+
+		if rand.Float64() < cl.writeRequestRatio {
+			rpcPair = cl.generateWriteRPCPair(uniqueId)
+			cl.debug(fmt.Sprintf("Client %d: Generated a write request with id %s", cl.id, uniqueId), 0)
+		} else {
+			rpcPair = cl.generateReadRPCPair(uniqueId)
+			cl.debug(fmt.Sprintf("Client %d: Generated a read request with id %s", cl.id, uniqueId), 0)
 		}
 
 		for _, replicaNode := range cl.replicaNodes {
@@ -80,13 +135,6 @@ func (cl *Client) generateWriteRequests() {
 
 			cl.debug(fmt.Sprintf("Client %d: Sent a request with id %s to replica with id %d", cl.id, uniqueId, replicaNode.id), 0)
 		}
-
-		requestTime := ClientRequest {
-			command: command,
-		}
-		requestTime.StartTime()
-
-		cl.writeRequests[uniqueId] = &requestTime
 		requestCounter++
 	}
 }

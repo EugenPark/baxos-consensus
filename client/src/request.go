@@ -20,13 +20,12 @@ func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 	id := response.UniqueId
 
 	// check if key already exists
-	writeRequest, ok := cl.writeRequests[id]
+	writeRequest, ok := cl.requests[id]
 	if !ok {
 		cl.debug(fmt.Sprintf("Received response for a write request with id %s that was not sent", id), 0)
 		panic("should not happen")
 	}
-
-	writeRequest.EndTime()
+	writeRequest.endTime()
 
 	cl.debug("Added write response with id " + id, 1)
 	
@@ -40,18 +39,22 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 	id := response.UniqueId
 
 	// check if key already exists
-	readRequest, ok := cl.readRequests[id]
+	readRequest, ok := cl.requests[id]
 	if !ok {
 		cl.debug(fmt.Sprintf("Received response for a read request with id %s that was not sent", id), 0)
 		panic("should not happen")
 	}
 
-	if !readRequest.end.IsZero() {
+	if readRequest.isCompleted() {
 		cl.debug(fmt.Sprintf("Already received read response for this id %s", id), 0)
 		return
 	}
-
-	readRequest.EndTime()
+	readRequest.endTime()
+	if response.Command == nil {
+		readRequest.command = ""
+	} else {
+		readRequest.command = response.Command.Value
+	}
 
 	cl.debug("Added read response with id " + id, 1)
 }
@@ -84,10 +87,14 @@ func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
 		Sender:   int64(cl.id),
 	}
 
-	requestTime := ClientRequest {}
-	requestTime.StartTime()
+	request := ClientRequest {
+		id: uniqueId,
+		command: command,
+		requestType: "write",
+	}
+	request.startTime()
 
-	cl.writeRequests[uniqueId] = &requestTime
+	cl.requests[uniqueId] = &request
 	
 	return common.RPCPair {
 		Code: cl.messageCodes.WriteRequest,
@@ -96,9 +103,14 @@ func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
 }
 
 func (cl *Client) generateReadRPCPair(uniqueId string) common.RPCPair {
-	requestTime := ClientRequest {}
-	requestTime.StartTime()
-	cl.readRequests[uniqueId] = &requestTime
+	request := ClientRequest {
+		id: uniqueId,
+		requestType: "read",
+	}
+	request.startTime()
+
+	cl.requests[uniqueId] = &request
+
 	return common.RPCPair {
 		Code: cl.messageCodes.ReadRequest,
 		Obj:  &common.ReadRequest {

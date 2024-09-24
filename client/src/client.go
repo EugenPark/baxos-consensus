@@ -12,23 +12,6 @@ type ReplicaNode struct {
 	region string
 }
 
-type ClientRequest struct {
-	start    time.Time
-	end      time.Time
-}
-
-func (r *ClientRequest) StartTime() {
-	r.start = time.Now()
-}
-
-func (r *ClientRequest) EndTime() {
-	r.end = time.Now()
-}
-
-func (r *ClientRequest) Duration() time.Duration {
-	return r.end.Sub(r.start)
-}
-
 /*
 	This file defines the client struct and the new method that is invoked when creating a new client by the main
 */
@@ -58,8 +41,7 @@ type Client struct {
 	arrivalChan         chan bool                // channel to which the main scheduler adds new request indications, to be consumed by the request generation threads
 	RequestType         string                   // [request] for sending a stream of client requests, [status] for sending a status request
 	OperationType       int                      // status operation type 1 (bootstrap server), 2: print log
-	writeRequests  	map[string]*ClientRequest // id of the request sent mapped to the time it was sent
-	readRequests   	map[string]*ClientRequest // id of the request sent mapped to the time it was sent
+	requests  			map[string]*ClientRequest // id of the request sent mapped to the time it was sent
 	startTime           time.Time                // test start time
 	clientListenAddress string                   // TCP address to which the client listens to new incoming TCP connections
 	keyLen              int                      // length of key
@@ -102,8 +84,7 @@ func New(id int32, logFilePath string, testDuration int, arrivalRate float64, re
 		RequestType:         requestType,
 		writeRequestRatio:   writeRequestRatio,
 		OperationType:       operationType,
-		writeRequests:   make(map[string]*ClientRequest),
-		readRequests:    make(map[string]*ClientRequest),
+		requests:   make(map[string]*ClientRequest),
 		startTime:           time.Time{},
 		keyLen:              keyLen,
 		valueLen:            valLen,

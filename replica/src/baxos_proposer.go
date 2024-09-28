@@ -12,7 +12,6 @@ import (
 */
 
 func (rp *Replica) setTimer(instance int64) {
-
 	rp.baxosConsensus.timer = common.NewTimerWithCancel(time.Duration(2 * rp.baxosConsensus.roundTripTime) * time.Microsecond)
 
 	rp.baxosConsensus.timer.SetTimeoutFunction(func() {
@@ -26,7 +25,6 @@ func (rp *Replica) setTimer(instance int64) {
 
 func (rp *Replica) randomBackOff(instance int64) {
 	rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Timed out", instance), 2)
-	
 
 	if rp.baxosConsensus.replicatedLog[instance].decided && rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulAccepts >= rp.baxosConsensus.quorumSize {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: already decided, hence ignoring the timeout indication", instance), 2)

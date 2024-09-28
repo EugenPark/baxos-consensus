@@ -36,8 +36,6 @@ type Replica struct {
 	debugOn    bool // if turned on, the debug messages will be printed on the console
 	debugLevel int  // current debug level
 
-	serverStarted bool // to bootstrap
-
 	baxosConsensus *Baxos // Baxos consensus data structs
 
 	logPrinted bool // to check if log was printed before
@@ -57,14 +55,13 @@ type Replica struct {
 */
 
 func New(id int32, logFilePath string, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
-		 valLen int, timeEpochSize int, 
-		 incomingChan <-chan common.Message, outgoingChan chan<- common.Message, region string) *Replica {
+		 valLen int, timeEpochSize int, incomingChan <-chan common.Message, outgoingChan chan<- common.Message,
+		 region string) *Replica {
 	return &Replica{
 		id:         id,
 		region: 	region,
 		replicaNodes:  []ReplicaNode{},
 
-		// rpcTable:     make(map[uint8]*common.RPCPair),
 		messageCodes: common.GetRPCCodes(),
 
 		incomingChan: incomingChan,
@@ -74,7 +71,6 @@ func New(id int32, logFilePath string, debugOn bool, debugLevel int, benchmarkMo
 
 		debugOn:       debugOn,
 		debugLevel:    debugLevel,
-		serverStarted: false,
 
 		logPrinted:       false,
 		benchmarkMode:    benchmarkMode,
@@ -135,12 +131,13 @@ func (rp *Replica) Run() {
 			rp.randomBackOff(instance)
 		case replicaMessage := <-rp.incomingChan:
 			switch replicaMessage.RpcPair.Code {
-
-			case rp.messageCodes.StatusRPC:
-				statusMessage := replicaMessage.RpcPair.Obj.(*common.Status)
-				rp.debug("Status message from "+fmt.Sprintf("%#v", statusMessage.Sender), 3)
-				rp.handleStatus(statusMessage)
-
+			case rp.messageCodes.PrintLog:
+				rp.debug("Received Print Log request", 3)
+				if !rp.logPrinted {
+					rp.logPrinted = true
+					rp.printBaxosLogConsensus() // this is for consensus testing purposes
+					rp.debug("Printing Log", 3)
+				}
 			case rp.messageCodes.WriteRequest:
 				writeRequest := replicaMessage.RpcPair.Obj.(*common.WriteRequest)
 				rp.debug(fmt.Sprintf("Client write request message from %#v", writeRequest.Sender), 0)

@@ -26,7 +26,7 @@ type MessageCode struct {
 	ReadRequest     uint8
 	WriteResponse   uint8
 	ReadResponse	uint8
-	StatusRPC       uint8
+	PrintLog        uint8
 	PrepareRequest  uint8
 	PromiseReply    uint8
 	ProposeRequest  uint8
@@ -45,7 +45,7 @@ func GetRPCCodes() MessageCode {
 		ReadRequest:     2,
 		WriteResponse:   3,
 		ReadResponse:	 4,
-		StatusRPC:       5,
+		PrintLog:       5,
 		PrepareRequest:  6,
 		PromiseReply:    7,
 		ProposeRequest:  8,
@@ -180,18 +180,18 @@ func (t *WriteResponse) New() Serializable {
 	return new(WriteResponse)
 }
 
-// Status wrapper
+// PrintLog wrapper
 
-func (t *Status) Marshal(wire io.Writer) error {
+func (t *PrintLog) Marshal(wire io.Writer) error {
 	return marshalMessage(wire, t)
 }
 
-func (t *Status) Unmarshal(wire io.Reader) error {
+func (t *PrintLog) Unmarshal(wire io.Reader) error {
 	return unmarshalMessage(wire, t)
 }
 
-func (t *Status) New() Serializable {
-	return new(Status)
+func (t *PrintLog) New() Serializable {
+	return new(PrintLog)
 }
 
 // PrepareRequest wrapper

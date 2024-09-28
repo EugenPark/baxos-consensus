@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"strconv"
 )
 
 type BaxosProposerInstance struct {
@@ -198,7 +197,7 @@ func (rp *Replica) createInstance(n int) {
 */
 
 func (rp *Replica) printBaxosLogConsensus() {
-	f, err := os.Create(rp.logFilePath + strconv.Itoa(int(rp.id)) + "-consensus.txt")
+	f, err := os.Create(fmt.Sprintf("%s%d-consensus.txt", rp.logFilePath, rp.id))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -208,7 +207,10 @@ func (rp *Replica) printBaxosLogConsensus() {
 		if !rp.baxosConsensus.replicatedLog[i].decided {
 			panic("should not happen")
 		}
-		_, _ = f.WriteString(fmt.Sprintf("%d: %s\n", i, rp.baxosConsensus.replicatedLog[i].decidedValue.Command.Value))
+		if rp.baxosConsensus.replicatedLog[i].decidedValue.Command == nil {
+			continue
+		}
+		f.WriteString(fmt.Sprintf("%d: %s\n", i, rp.baxosConsensus.replicatedLog[i].decidedValue.Command.Value))
 	}
 }
 

@@ -51,8 +51,8 @@ func main() {
 			Code:   common.GetRPCCodes().ReadResponse,
 		},
 		{
-			MsgObj: new(common.Status),
-			Code:   common.GetRPCCodes().StatusRPC,
+			MsgObj: new(common.PrintLog),
+			Code:   common.GetRPCCodes().PrintLog,
 		},
 		{
 			MsgObj: new(common.PrepareRequest),

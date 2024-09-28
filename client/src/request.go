@@ -13,7 +13,7 @@ import (
 */
 
 func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
-	if cl.finished {
+	if cl.Finished {
 		return
 	}
 
@@ -32,7 +32,7 @@ func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 }
 
 func (cl *Client) handleReadResponse(response *common.ReadResponse) {
-	if cl.finished {
+	if cl.Finished {
 		return
 	}
 
@@ -70,9 +70,6 @@ func (cl *Client) SendRequests() {
 	go cl.generateRequests()
 	go cl.startScheduler()
 	time.Sleep(time.Duration(cl.testDuration) * time.Second)
-	cl.finished = true
-	fmt.Printf("Finish sending requests \n")
-	cl.computeStats()
 }
 
 func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
@@ -122,7 +119,7 @@ func (cl *Client) generateReadRPCPair(uniqueId string) common.RPCPair {
 
 func (cl *Client) generateRequests() {
 	requestCounter := 0
-	for !cl.finished {            		
+	for !cl.Finished {            		
 		<-cl.arrivalChan
 		cl.debug("New request arrival", 0)
 
@@ -157,7 +154,7 @@ func (cl *Client) generateRequests() {
 
 func (cl *Client) startScheduler() {
 	cl.startTime = time.Now()
-	for !cl.finished {
+	for !cl.Finished {
 		// sleep for the next arrival time
 		interArrivalTime := rand.ExpFloat64() / float64(cl.arrivalRate)
 		time.Sleep(time.Duration(interArrivalTime * float64(time.Second)))

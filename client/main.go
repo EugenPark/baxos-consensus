@@ -4,6 +4,7 @@ import (
 	"baxos/client/src"
 	"baxos/common"
 	"flag"
+	"fmt"
 	"time"
 )
 
@@ -14,9 +15,7 @@ func main() {
 	logFilePath := flag.String("logFilePath", "logs/", "log file path")
 	testDuration := flag.Int("testDuration", 60, "test duration in seconds")
 	arrivalRate := flag.Float64("arrivalRate", 1000, "poisson arrival rate in requests per second")
-	requestType := flag.String("requestType", "status", "request type: [status , request]")
 	writeRequestRatio := flag.Float64("writeRequestRatio", 0.5, "ratio of write requests vs read requests")
-	operationType := flag.Int("operationType", 1, "Type of operation for a status request: 1 (bootstrap server), 2: (print log)")
 	debugOn := flag.Bool("debugOn", false, "false or true")
 	debugLevel := flag.Int("debugLevel", -1, "debug level int")
 	keyLen := flag.Int("keyLen", 8, "key length")
@@ -49,8 +48,8 @@ func main() {
 			Code:   common.GetRPCCodes().ReadResponse,
 		},
 		{
-			MsgObj: new(common.Status),
-			Code:   common.GetRPCCodes().StatusRPC,
+			MsgObj: new(common.PrintLog),
+			Code:   common.GetRPCCodes().PrintLog,
 		},
 	}
 
@@ -60,7 +59,7 @@ func main() {
 	network := common.NewNetwork(int32(*id), (*debugLevel == 0 && *debugOn), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 	
-	cl := src.New(int32(*id), *logFilePath, *testDuration, *arrivalRate, *requestType, *writeRequestRatio, *operationType, *debugOn, *debugLevel, *keyLen, *valLen, incomingChan, outgoingChan, *region)
+	cl := src.New(int32(*id), *logFilePath, *testDuration, *arrivalRate, *writeRequestRatio, *debugOn, *debugLevel, *keyLen, *valLen, incomingChan, outgoingChan, *region)
 	cl.Init(cfg)
 
 	go network.Run()
@@ -68,9 +67,10 @@ func main() {
 
 	time.Sleep(time.Duration(5) * time.Second)
 
-	if cl.RequestType == "status" {
-		cl.SendStatus(cl.OperationType)
-	} else if cl.RequestType == "request" {
-		cl.SendRequests()
-	}
+	cl.SendRequests()
+	cl.Finished = true
+	fmt.Printf("Finish sending requests \n")
+	cl.SendPrintLogRequest()
+	cl.ComputeStats()
+	time.Sleep(time.Duration(*artificialLatency * *artificialLatencyMultiplier) * time.Microsecond) // wait for max latency to ensure all logs are printed
 }

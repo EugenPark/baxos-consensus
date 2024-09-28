@@ -23,8 +23,8 @@ type Client struct {
 
 	replicaNodes []ReplicaNode
 
-	incomingChan <-chan common.Message // used to collect ClientBatch messages for responses and Status messages for responses
-	outgoingChan chan<- common.Message // used to send ClientBatch messages to replicas
+	incomingChan <-chan common.Message // used to collect responses
+	outgoingChan chan<- common.Message // used to send requests
 
 	writeRequestRatio float64 // ratio of write requests vs read requests
 
@@ -39,22 +39,18 @@ type Client struct {
 
 	arrivalTimeChan     chan int64               // channel to which the poisson process adds new request arrival times in nanoseconds w.r.t test start time
 	arrivalChan         chan bool                // channel to which the main scheduler adds new request indications, to be consumed by the request generation threads
-	RequestType         string                   // [request] for sending a stream of client requests, [status] for sending a status request
-	OperationType       int                      // status operation type 1 (bootstrap server), 2: print log
 	requests  			map[string]*ClientRequest // id of the request sent mapped to the time it was sent
 	startTime           time.Time                // test start time
 	clientListenAddress string                   // TCP address to which the client listens to new incoming TCP connections
 	keyLen              int                      // length of key
 	valueLen            int                      // length of value
 
-	finished           bool
+	Finished           bool
 }
 
 /*
 	requestBatch contains a batch that was written to wire, and the time it was written
 */
-
-const statusTimeout = 5               // time to wait for a status request in seconds
 
 const arrivalBufferSize = 1000000     // size of the buffer that collects new request arrivals
 
@@ -62,8 +58,8 @@ const arrivalBufferSize = 1000000     // size of the buffer that collects new re
 	Instantiate a new Client instance, allocate the buffers
 */
 
-func New(id int32, logFilePath string, testDuration int, arrivalRate float64, requestType string, writeRequestRatio float64,
-	     operationType int, debugOn bool, debugLevel int, keyLen int, valLen int,
+func New(id int32, logFilePath string, testDuration int, arrivalRate float64, writeRequestRatio float64,
+	     debugOn bool, debugLevel int, keyLen int, valLen int,
 		 incomingChan <-chan common.Message, outgoingChan chan<- common.Message, region string) *Client {
 	return &Client{
 		id:              id,
@@ -81,14 +77,12 @@ func New(id int32, logFilePath string, testDuration int, arrivalRate float64, re
 		arrivalRate:         arrivalRate,
 		arrivalTimeChan:     make(chan int64, arrivalBufferSize),
 		arrivalChan:         make(chan bool, arrivalBufferSize),
-		RequestType:         requestType,
 		writeRequestRatio:   writeRequestRatio,
-		OperationType:       operationType,
 		requests:   make(map[string]*ClientRequest),
 		startTime:           time.Time{},
 		keyLen:              keyLen,
 		valueLen:            valLen,
-		finished:            false,
+		Finished:            false,
 	}
 }
 
@@ -126,11 +120,6 @@ func (cl *Client) Run() {
 			response := replicaMessage.RpcPair.Obj.(*common.ReadResponse)
 			cl.debug(fmt.Sprintf("Client %d: Received read response from %d", cl.id, response.Sender), 0)
 			cl.handleReadResponse(response)
-
-		case cl.messageCodes.StatusRPC:
-			clientStatusResponse := replicaMessage.RpcPair.Obj.(*common.Status)
-			cl.debug(fmt.Sprintf("Client status  %#v", clientStatusResponse), 3)
-			cl.handleClientStatusResponse(clientStatusResponse)
 		}
 	}
 }

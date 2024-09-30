@@ -12,8 +12,8 @@ import (
 )
 
 type Message struct {
-	From int32
-	To int32
+	From int
+	To int
 	RpcPair *RPCPair
 }
 
@@ -31,7 +31,7 @@ type Node struct {
 }
 
 type Application struct {
-	id int32
+	id int
 	incomingChan chan<- Message
 	outgoingChan <-chan Message
 }
@@ -40,7 +40,7 @@ type Network struct {
 	app Application
 	artificialLatency int
 	artificialLatencyMultiplier int
-	nodes map[int32]*Node
+	nodes map[int]*Node
 	rpcTable map[uint8]*RPCPair
 	debugOn bool
 }
@@ -54,7 +54,7 @@ func (n *Network) RegisterRPC(msgObj Serializable, code uint8) {
 	n.rpcTable[code] = &RPCPair{Code: code, Obj: msgObj}
 }
 
-func NewNetwork(id int32, debugOn bool, artificialLatency int, artificialLatencyMultiplier int, outgoingChan <-chan Message, incomingChan chan<- Message) *Network {
+func NewNetwork(id int, debugOn bool, artificialLatency int, artificialLatencyMultiplier int, outgoingChan <-chan Message, incomingChan chan<- Message) *Network {
 	return &Network{
 		app: Application{
 			id: id,
@@ -63,7 +63,7 @@ func NewNetwork(id int32, debugOn bool, artificialLatency int, artificialLatency
 		},
 		artificialLatency: artificialLatency,
 		artificialLatencyMultiplier: artificialLatencyMultiplier,
-		nodes: make(map[int32]*Node),
+		nodes: make(map[int]*Node),
 		rpcTable: make(map[uint8]*RPCPair),
 		debugOn: debugOn,
 	}
@@ -72,7 +72,7 @@ func NewNetwork(id int32, debugOn bool, artificialLatency int, artificialLatency
 func (n *Network) Init(rpcToRegister []RPCConfig, config *InstanceConfig)  {
 	for i := 0; i < len(config.Clients); i++ {
 		id, _ := strconv.ParseInt(config.Clients[i].Id, 10, 32)
-		n.nodes[int32(id)] = &Node{
+		n.nodes[int(id)] = &Node{
 			address: config.Clients[i].Domain + ":" + config.Clients[i].Port,
 			region:  config.Clients[i].Region,
 			outgoingWriterMutex: &sync.Mutex{},
@@ -81,7 +81,7 @@ func (n *Network) Init(rpcToRegister []RPCConfig, config *InstanceConfig)  {
 
 	for i := 0; i < len(config.Replicas); i++ {
 		id, _ := strconv.ParseInt(config.Replicas[i].Id, 10, 32)
-		n.nodes[int32(id)] = &Node{
+		n.nodes[int(id)] = &Node{
 			address: config.Replicas[i].Domain + ":" + config.Replicas[i].Port,
 			region:  config.Replicas[i].Region,
 			outgoingWriterMutex: &sync.Mutex{},
@@ -100,7 +100,7 @@ func (n *Network) Run() {
 	go n.StartSendServer()
 }
 
-func (n *Network) ConnectToNode(sender int32, receiver *Node) {
+func (n *Network) ConnectToNode(sender int, receiver *Node) {
 	var b [4]byte
 	bs := b[:4]
 
@@ -127,7 +127,7 @@ func (n *Network) ConnectToAllNodes() {
 	listen to a given connection reader. Upon receiving any message, put it into the central incoming buffer
 */
 
-func (n *Network) ConnectionHandler(reader *bufio.Reader, from int32) {
+func (n *Network) ConnectionHandler(reader *bufio.Reader, from int) {
 
 	var msgType uint8
 	var err error = nil
@@ -191,7 +191,7 @@ func (n *Network) StartListenServer() {
 		if _, err := io.ReadFull(conn, bs); err != nil {
 			panic(fmt.Sprintf("%v", err.Error()))
 		}
-		id := int32(binary.LittleEndian.Uint16(bs))
+		id := int(binary.LittleEndian.Uint16(bs))
 		n.debug("Received incoming connection from "+strconv.Itoa(int(id)))
 		n.nodes[id].incomingReader = bufio.NewReader(conn)
 

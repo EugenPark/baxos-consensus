@@ -7,20 +7,15 @@ import (
 	"strconv"
 )
 
-type ReplicaNode struct {
-	id     int32
-	region string
-}
-
 /*
 	defines the Replica struct and the new method that is invoked when creating a new replica
 */
 
 type Replica struct {
-	id          int32  // unique replica identifier as defined in the configuration file
+	id          int  // unique replica identifier as defined in the configuration file
 	listenAddress string // TCP address to which the replica listens to new incoming TCP connections
 
-	replicaNodes []ReplicaNode
+	replicaNodes []int
 
 	region string // region of the replica
 
@@ -54,13 +49,13 @@ type Replica struct {
 	instantiate a new replica instance, allocate the buffers
 */
 
-func New(id int32, logFilePath string, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
+func New(id int, logFilePath string, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
 		 valLen int, timeEpochSize int, incomingChan <-chan common.Message, outgoingChan chan<- common.Message,
 		 region string) *Replica {
 	return &Replica{
 		id:         id,
 		region: 	region,
-		replicaNodes:  []ReplicaNode{},
+		replicaNodes:  make([]int, 0),
 
 		messageCodes: common.GetRPCCodes(),
 
@@ -88,8 +83,8 @@ func (rp *Replica) Init(cfg *common.InstanceConfig, isAsync bool, roundTripTime 
 
 	// initialize replicaNodes
 	for i := 0; i < len(cfg.Replicas); i++ {
-		int32Name, _ := strconv.ParseInt(cfg.Replicas[i].Id, 10, 32)
-		rp.replicaNodes = append(rp.replicaNodes, ReplicaNode{id: int32(int32Name), region: cfg.Replicas[i].Region})
+		id, _ := strconv.ParseInt(cfg.Replicas[i].Id, 10, 32)
+		rp.replicaNodes = append(rp.replicaNodes, int(id))
 	}
 
 	if isAsync {

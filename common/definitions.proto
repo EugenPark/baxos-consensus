@@ -49,18 +49,18 @@ message ReadPromise {
 message PrintLog {}
 
 message Ballot {
-  int32 number = 1;
-  int32 replica_id = 2;
+  int64 number = 1;
+  int64 replica_id = 2;
 }
 
 message PrepareRequest {
-  int32 instance_number = 1;
+  int64 instance_number = 1;
   Ballot prepare_ballot = 2;
   int64 sender = 3;
 }
 
 message PromiseReply {
-  int32 instance_number = 1;
+  int64 instance_number = 1;
   bool promise = 2;
   Ballot last_promised_ballot = 3;
 
@@ -73,12 +73,12 @@ message PromiseReply {
 }
 
 message DecideInfo {
-  int32 instance_number = 1;
+  int64 instance_number = 1;
   WriteRequest decided_value = 2;
 }
 
 message ProposeRequest {
-  int32 instance_number = 1;
+  int64 instance_number = 1;
   Ballot propose_ballot = 2;
   WriteRequest propose_value = 3;
 
@@ -87,7 +87,7 @@ message ProposeRequest {
 }
 
 message AcceptReply {
-  int32 instance_number = 1;
+  int64 instance_number = 1;
   bool accept = 2;
   Ballot accept_ballot = 3;
 

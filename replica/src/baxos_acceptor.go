@@ -64,7 +64,7 @@ func (rp *Replica) handlePrepare(message *common.PrepareRequest) {
 
 	rp.outgoingChan <- common.Message {
 		From:    rp.id,
-		To:      int32(message.Sender),
+		To:      int(message.Sender),
 		RpcPair: &rpcPair,
 	}
 	rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d: Sent a promise response to %d", message.InstanceNumber, message.Sender), 2)
@@ -118,7 +118,7 @@ func (rp *Replica) handlePropose(message *common.ProposeRequest) {
 	if acceptReply != nil {
 		rp.outgoingChan <- common.Message {
 			From:    rp.id,
-			To:      int32(message.Sender),
+			To:      int(message.Sender),
 			RpcPair: &common.RPCPair{
 				Code: rp.messageCodes.AcceptReply,
 				Obj:  acceptReply,
@@ -142,7 +142,7 @@ func (rp *Replica) handlePropose(message *common.ProposeRequest) {
 	}
 }
 
-func (rp *Replica) handleReadPrepare(prepare *common.ReadPrepare, from int32) {
+func (rp *Replica) handleReadPrepare(prepare *common.ReadPrepare, from int) {
 	lastDecidedCommand := &common.Command{}
 	index := rp.baxosConsensus.lastCommittedLogIndex
 

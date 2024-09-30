@@ -135,14 +135,14 @@ func (cl *Client) generateRequests() {
 			cl.debug(fmt.Sprintf("Client %d: Generated a read request with id %s", cl.id, uniqueId), 0)
 		}
 
-		for _, replicaNode := range cl.replicaNodes {
+		for _, replicaId := range cl.replicaNodes {
 			cl.outgoingChan <- common.Message {
 				From:  cl.id,
-				To: replicaNode.id,
+				To: replicaId,
 				RpcPair:  &rpcPair,
 			}
 
-			cl.debug(fmt.Sprintf("Client %d: Sent a request with id %s to replica with id %d", cl.id, uniqueId, replicaNode.id), 0)
+			cl.debug(fmt.Sprintf("Client %d: Sent a request with id %s to replica with id %d", cl.id, uniqueId, replicaId), 0)
 		}
 		requestCounter++
 	}

@@ -85,28 +85,28 @@ func (rp *Replica) sendPrepare() {
 
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot = 
 		&common.Ballot {
-			Number: int32(math.Max(float64(prevBallot.Number), float64(prevHighestAcceptedBallot.Number))) + 1,
-			ReplicaId:     rp.id,
+			Number: int64(math.Max(float64(prevBallot.Number), float64(prevHighestAcceptedBallot.Number))) + 1,
+			ReplicaId:     int64(rp.id),
 		}
 	
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.numSuccessfulPromises = 0
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedBallot = &common.Ballot {
 		Number: -1,
-		ReplicaId:     rp.id,
+		ReplicaId:     int64(rp.id),
 	}
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.highestSeenAcceptedValue = &common.WriteRequest{}
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.proposedValue = &common.WriteRequest{}
 	rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.numSuccessfulAccepts = 0
 
-	for _, replicaNode := range rp.replicaNodes {
+	for _, replicaId := range rp.replicaNodes {
 		prepareMessage := common.PrepareRequest {
-			InstanceNumber: nextFreeInstance,
+			InstanceNumber: int64(nextFreeInstance),
 			PrepareBallot:  rp.baxosConsensus.replicatedLog[nextFreeInstance].proposer_bookkeeping.preparedBallot,
 			Sender:         int64(rp.id),
 		}
 		rp.outgoingChan <- common.Message {
 			From:    rp.id,
-			To:      replicaNode.id,
+			To:      replicaId,
 			RpcPair: &common.RPCPair{Code: rp.messageCodes.PrepareRequest, Obj: &prepareMessage},
 		}
 	}
@@ -163,7 +163,7 @@ func (rp *Replica) handlePromise(message *common.PromiseReply) {
 		if rp.baxosConsensus.replicatedLog[message.InstanceNumber].proposer_bookkeeping.numSuccessfulPromises == rp.baxosConsensus.quorumSize {
 			rp.debug(fmt.Sprintf("PROPOSER: Instance %d: received quorum of promises, hence proposing", message.InstanceNumber), 2)
 			
-			rp.sendPropose(message.InstanceNumber)
+			rp.sendPropose(int(message.InstanceNumber))
 		}
 	}
 
@@ -183,10 +183,10 @@ func (rp *Replica) tryPropose() {
 }
 
 func (rp *Replica) sendReadPrepare(request *common.ReadRequest) {
-	for _, replicaNode := range rp.replicaNodes {
+	for _, replicaId := range rp.replicaNodes {
 		rp.outgoingChan <- common.Message {
 			From:    rp.id,
-			To:      replicaNode.id,
+			To:      replicaId,
 			RpcPair: &common.RPCPair{Code: rp.messageCodes.ReadPrepare, Obj: &common.ReadPrepare{
 				UniqueId: request.UniqueId,
 				Sender:  request.Sender,
@@ -200,22 +200,22 @@ func (rp *Replica) handleReadPromise(message *common.ReadPromise) {
 	rp.debug(fmt.Sprintf("READER: UniqueId %s: Received a promise from %d", message.UniqueId, message.Sender), 1)
 
 
-	if int32(len(rp.incomingReadRequests[uniqueId].responses)) >= rp.baxosConsensus.quorumSize {
+	if len(rp.incomingReadRequests[uniqueId].responses) >= rp.baxosConsensus.quorumSize {
 		rp.debug(fmt.Sprintf("READER: UniqueId %s: Already received enough promises, hence ignoring the promise", uniqueId), 1)
 		return
 	}
 
 	rp.incomingReadRequests[uniqueId].responses = append(rp.incomingReadRequests[uniqueId].responses, message)
-	if int32(len(rp.incomingReadRequests[uniqueId].responses)) == rp.baxosConsensus.quorumSize {
+	if len(rp.incomingReadRequests[uniqueId].responses) == rp.baxosConsensus.quorumSize {
 		rp.debug(fmt.Sprintf("READER: UniqueId %s: Received quorum of promises, hence sending the read response", uniqueId), 1)
-		rp.sendClientReadResponse(uniqueId, int32(message.Sender))
+		rp.sendClientReadResponse(uniqueId, int(message.Sender))
 	}
 }
 /*
 	propose a command for instance
 */
 
-func (rp *Replica) sendPropose(instance int32) {
+func (rp *Replica) sendPropose(instance int) {
 
 	rp.createInstance(int(instance))
 
@@ -224,7 +224,7 @@ func (rp *Replica) sendPropose(instance int32) {
 	}
 
 	decideInfo := common.DecideInfo {
-		InstanceNumber: instance - 1,
+		InstanceNumber: int64(instance - 1),
 		DecidedValue:   rp.baxosConsensus.replicatedLog[instance-1].decidedValue,
 	}
 
@@ -246,9 +246,9 @@ func (rp *Replica) sendPropose(instance int32) {
 
 	rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.proposedValue = proposeValue
 
-	for _, replicaNode := range rp.replicaNodes {
+	for _, replicaId := range rp.replicaNodes {
 		proposeRequest := common.ProposeRequest {
-			InstanceNumber: instance,
+			InstanceNumber: int64(instance),
 			ProposeBallot:  rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.preparedBallot,
 			ProposeValue:   proposeValue,
 			Sender:         int64(rp.id),
@@ -256,7 +256,7 @@ func (rp *Replica) sendPropose(instance int32) {
 		}
 		rp.outgoingChan <- common.Message{
 			From:    rp.id,
-			To:      replicaNode.id,
+			To:      replicaId,
 			RpcPair: &common.RPCPair{Code: rp.messageCodes.ProposeRequest, Obj: &proposeRequest},
 		}
 	}

@@ -19,7 +19,7 @@ func (rp *Replica) handleReadRequest(request *common.ReadRequest) {
 	rp.sendReadPrepare(request)
 }
 
-func (rp *Replica) sendClientReadResponse(uniqueId string, to int32) {
+func (rp *Replica) sendClientReadResponse(uniqueId string, to int) {
 	var latestIndex int64
 	latestIndex = -1
 	latestCommand := &common.Command{}
@@ -45,7 +45,7 @@ func (rp *Replica) sendClientReadResponse(uniqueId string, to int32) {
 }
 
 // send back the client responses
-func (rp *Replica) sendClientResponse(response *common.WriteResponse, to int32) {
+func (rp *Replica) sendClientResponse(response *common.WriteResponse, to int) {
 	if to == -1 {
 		rp.debug("Ignore empty decided value", 0)
 		return

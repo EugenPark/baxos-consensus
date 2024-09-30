@@ -7,21 +7,16 @@ import (
 	"time"
 )
 
-type ReplicaNode struct {
-	id     int32
-	region string
-}
-
 /*
 	This file defines the client struct and the new method that is invoked when creating a new client by the main
 */
 
 type Client struct {
-	id          int32 // unique client identifier as defined in the configuration
+	id          int // unique client identifier as defined in the configuration
 	numReplicas int   // number of replicas
 	region	  	string
 
-	replicaNodes []ReplicaNode
+	replicaNodes []int
 
 	incomingChan <-chan common.Message // used to collect responses
 	outgoingChan chan<- common.Message // used to send requests
@@ -39,8 +34,11 @@ type Client struct {
 
 	arrivalTimeChan     chan int64               // channel to which the poisson process adds new request arrival times in nanoseconds w.r.t test start time
 	arrivalChan         chan bool                // channel to which the main scheduler adds new request indications, to be consumed by the request generation threads
+	
 	requests  			map[string]*ClientRequest // id of the request sent mapped to the time it was sent
+	
 	startTime           time.Time                // test start time
+	
 	clientListenAddress string                   // TCP address to which the client listens to new incoming TCP connections
 	keyLen              int                      // length of key
 	valueLen            int                      // length of value
@@ -58,13 +56,13 @@ const arrivalBufferSize = 1000000     // size of the buffer that collects new re
 	Instantiate a new Client instance, allocate the buffers
 */
 
-func New(id int32, logFilePath string, testDuration int, arrivalRate float64, writeRequestRatio float64,
+func New(id int, logFilePath string, testDuration int, arrivalRate float64, writeRequestRatio float64,
 	     debugOn bool, debugLevel int, keyLen int, valLen int,
 		 incomingChan <-chan common.Message, outgoingChan chan<- common.Message, region string) *Client {
 	return &Client{
 		id:              id,
 		region:          region,
-		replicaNodes:    []ReplicaNode{},
+		replicaNodes:    make([]int, 0),
 		incomingChan:    incomingChan,
 		outgoingChan:    outgoingChan,
 		messageCodes:    common.GetRPCCodes(),
@@ -78,7 +76,7 @@ func New(id int32, logFilePath string, testDuration int, arrivalRate float64, wr
 		arrivalTimeChan:     make(chan int64, arrivalBufferSize),
 		arrivalChan:         make(chan bool, arrivalBufferSize),
 		writeRequestRatio:   writeRequestRatio,
-		requests:   make(map[string]*ClientRequest),
+		requests:   		 make(map[string]*ClientRequest),
 		startTime:           time.Time{},
 		keyLen:              keyLen,
 		valueLen:            valLen,
@@ -92,8 +90,8 @@ func (cl *Client) Init(cfg *common.InstanceConfig) {
 
 	// initialize replicaNodes
 	for i := 0; i < len(cfg.Replicas); i++ {
-		int32Name, _ := strconv.ParseInt(cfg.Replicas[i].Id, 10, 32)
-		cl.replicaNodes = append(cl.replicaNodes, ReplicaNode{id: int32(int32Name), region: cfg.Replicas[i].Region})
+		id, _ := strconv.ParseInt(cfg.Replicas[i].Id, 10, 32)
+		cl.replicaNodes = append(cl.replicaNodes, int(id))
 	}
 
 	fmt.Printf("Initialized client %d \n", cl.id)

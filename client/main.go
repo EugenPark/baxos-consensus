@@ -56,10 +56,10 @@ func main() {
 	outgoingChan := make(chan common.Message, 10000000)
 	incomingChan := make(chan common.Message, 10000000)
 
-	network := common.NewNetwork(int32(*id), (*debugLevel == 0 && *debugOn), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
+	network := common.NewNetwork(int(*id), (*debugLevel == 0 && *debugOn), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 	
-	cl := src.New(int32(*id), *logFilePath, *testDuration, *arrivalRate, *writeRequestRatio, *debugOn, *debugLevel, *keyLen, *valLen, incomingChan, outgoingChan, *region)
+	cl := src.New(int(*id), *logFilePath, *testDuration, *arrivalRate, *writeRequestRatio, *debugOn, *debugLevel, *keyLen, *valLen, incomingChan, outgoingChan, *region)
 	cl.Init(cfg)
 
 	go network.Run()

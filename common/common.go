@@ -37,9 +37,9 @@ type OutgoingRPC struct {
 	Returns the self ip:port
 */
 
-func GetAddress(nodes []Instance, id int32) string {
+func GetAddress(nodes []Instance, id int) string {
 	for i := 0; i < len(nodes); i++ {
-		if nodes[i].Id == strconv.Itoa(int(id)) {
+		if nodes[i].Id == strconv.Itoa(id) {
 			return nodes[i].Domain + ":" + nodes[i].Port
 		}
 	}

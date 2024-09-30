@@ -11,8 +11,8 @@ import (
 	sets a timer, which once timeout will send an internal notification for setting the backoff timer
 */
 
-func (rp *Replica) setTimer(instance int64) {
-	rp.baxosConsensus.timer = common.NewTimerWithCancel(time.Duration(2 * rp.baxosConsensus.roundTripTime) * time.Microsecond)
+func (rp *Replica) setTimer(instance int) {
+	rp.baxosConsensus.timer = common.NewTimerWithCancel(time.Duration(rp.baxosConsensus.roundTripTime) * time.Microsecond)
 
 	rp.baxosConsensus.timer.SetTimeoutFunction(func() {
 		rp.baxosConsensus.timeOutChan <- instance
@@ -23,7 +23,7 @@ func (rp *Replica) setTimer(instance int64) {
 
 // this is triggered when the proposer timer timeout after waiting for promise / accept messages
 
-func (rp *Replica) randomBackOff(instance int64) {
+func (rp *Replica) randomBackOff(instance int) {
 	rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Timed out", instance), 2)
 
 	if rp.baxosConsensus.replicatedLog[instance].decided && rp.baxosConsensus.replicatedLog[instance].proposer_bookkeeping.numSuccessfulAccepts >= rp.baxosConsensus.quorumSize {
@@ -118,7 +118,7 @@ func (rp *Replica) sendPrepare() {
 	if rp.baxosConsensus.timer != nil {
 		rp.baxosConsensus.timer.Cancel()
 	}
-	rp.setTimer(int64(nextFreeInstance))
+	rp.setTimer(nextFreeInstance)
 }
 
 /*
@@ -268,7 +268,7 @@ func (rp *Replica) sendPropose(instance int) {
 	if rp.baxosConsensus.timer != nil {
 		rp.baxosConsensus.timer.Cancel()
 	}
-	rp.setTimer(int64(instance))
+	rp.setTimer(instance)
 }
 
 /*

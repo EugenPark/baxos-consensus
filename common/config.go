@@ -26,7 +26,7 @@ type InstanceConfig struct {
 }
 
 // NewInstanceConfig loads a  instance configuration from given file
-func NewInstanceConfig(fname string, name int64) (*InstanceConfig, error) {
+func NewInstanceConfig(fname string, name int) (*InstanceConfig, error) {
 	var cfg InstanceConfig
 	data, err := os.ReadFile(fname)
 	if err != nil {
@@ -44,7 +44,7 @@ func NewInstanceConfig(fname string, name int64) (*InstanceConfig, error) {
 	Replace the IP of my self to 0.0.0.0
 */
 
-func configureSelfIP(cfg InstanceConfig, id int64) InstanceConfig {
+func configureSelfIP(cfg InstanceConfig, id int) InstanceConfig {
 	for i := 0; i < len(cfg.Replicas); i++ {
 		if cfg.Replicas[i].Id == strconv.Itoa(int(id)) {
 			cfg.Replicas[i].Domain = "0.0.0.0"

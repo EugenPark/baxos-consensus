@@ -24,7 +24,6 @@ type RPCConfig struct {
 
 type Node struct {
 	address string
-	region  string
 	outgoingWriter *bufio.Writer
 	outgoingWriterMutex *sync.Mutex
 	incomingReader *bufio.Reader
@@ -38,8 +37,7 @@ type Application struct {
 
 type Network struct {
 	app Application
-	artificialLatency int
-	artificialLatencyMultiplier int
+	artificialLatency time.Duration // Artificial latency to simulate network delay
 	nodes map[int]*Node
 	rpcTable map[uint8]*RPCPair
 	debugOn bool
@@ -50,11 +48,11 @@ type Network struct {
 */
 
 func (n *Network) RegisterRPC(msgObj Serializable, code uint8) {
-	n.debug("Registering RPC "+strconv.Itoa(int(code)))
+	n.debug(fmt.Sprintf("Registering RPC %d", code))
 	n.rpcTable[code] = &RPCPair{Code: code, Obj: msgObj}
 }
 
-func NewNetwork(id int, debugOn bool, artificialLatency int, artificialLatencyMultiplier int, outgoingChan <-chan Message, incomingChan chan<- Message) *Network {
+func NewNetwork(id int, debugOn bool, artificialLatency time.Duration, outgoingChan <-chan Message, incomingChan chan<- Message) *Network {
 	return &Network{
 		app: Application{
 			id: id,
@@ -62,7 +60,6 @@ func NewNetwork(id int, debugOn bool, artificialLatency int, artificialLatencyMu
 			outgoingChan: outgoingChan,
 		},
 		artificialLatency: artificialLatency,
-		artificialLatencyMultiplier: artificialLatencyMultiplier,
 		nodes: make(map[int]*Node),
 		rpcTable: make(map[uint8]*RPCPair),
 		debugOn: debugOn,
@@ -74,7 +71,6 @@ func (n *Network) Init(rpcToRegister []RPCConfig, config *InstanceConfig)  {
 		id, _ := strconv.ParseInt(config.Clients[i].Id, 10, 32)
 		n.nodes[int(id)] = &Node{
 			address: config.Clients[i].Domain + ":" + config.Clients[i].Port,
-			region:  config.Clients[i].Region,
 			outgoingWriterMutex: &sync.Mutex{},
 		}
 	}
@@ -83,7 +79,6 @@ func (n *Network) Init(rpcToRegister []RPCConfig, config *InstanceConfig)  {
 		id, _ := strconv.ParseInt(config.Replicas[i].Id, 10, 32)
 		n.nodes[int(id)] = &Node{
 			address: config.Replicas[i].Domain + ":" + config.Replicas[i].Port,
-			region:  config.Replicas[i].Region,
 			outgoingWriterMutex: &sync.Mutex{},
 		}
 	}
@@ -212,19 +207,13 @@ func (n *Network) StartSendServer() {
 */
 
 func (n *Network) SendMessage(message Message) {
-	latency := time.Duration(n.artificialLatency) * time.Microsecond
-	increasedLatency := time.Duration(n.artificialLatency * n.artificialLatencyMultiplier) * time.Microsecond
-
-	from := n.nodes[message.From]
 	to := n.nodes[message.To]
 
-	// artificial latency to simulate network delay in geo-distributed systems
+	// simulate network delay
 	if message.From == message.To {
 		time.Sleep(0)
-	} else if from.region == to.region {
-		time.Sleep(latency)
 	} else {
-		time.Sleep(increasedLatency)
+		time.Sleep(n.artificialLatency)
 	}
 
 	w := to.outgoingWriter

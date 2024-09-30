@@ -3,7 +3,6 @@ package src
 import (
 	"baxos/common"
 	"fmt"
-	"math/rand"
 	"strconv"
 )
 
@@ -39,9 +38,6 @@ type Replica struct {
 
 	incomingWriteRequests []*common.WriteRequest // incoming write requests
 	incomingReadRequests  map[string]*ReadRequestInstance  // incoming read requests
-
-	asynchronousReplicas   map[int][]int // for each time based epoch, the minority replicas that are attacked
-	timeEpochSize          int           // how many ms for a given time epoch
 }
 
 
@@ -50,7 +46,7 @@ type Replica struct {
 */
 
 func New(id int, logFilePath string, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
-		 valLen int, timeEpochSize int, incomingChan <-chan common.Message, outgoingChan chan<- common.Message,
+		 valLen int, incomingChan <-chan common.Message, outgoingChan chan<- common.Message,
 		 region string) *Replica {
 	return &Replica{
 		id:         id,
@@ -71,13 +67,10 @@ func New(id int, logFilePath string, debugOn bool, debugLevel int, benchmarkMode
 		benchmarkMode:    benchmarkMode,
 		incomingWriteRequests: make([]*common.WriteRequest, 0),
 		incomingReadRequests:  make(map[string]*ReadRequestInstance),
-
-		asynchronousReplicas:   make(map[int][]int),
-		timeEpochSize:          timeEpochSize,
 	}	
 }
 
-func (rp *Replica) Init(cfg *common.InstanceConfig, isAsync bool, roundTripTime int64) {
+func (rp *Replica) Init(cfg *common.InstanceConfig, roundTripTime int) {
 	rp.numReplicas = len(cfg.Replicas)
 	rp.listenAddress = common.GetAddress(cfg.Replicas, rp.id)
 
@@ -87,27 +80,7 @@ func (rp *Replica) Init(cfg *common.InstanceConfig, isAsync bool, roundTripTime 
 		rp.replicaNodes = append(rp.replicaNodes, int(id))
 	}
 
-	if isAsync {
-		// initialize the attack replicas for each time epoch, we assume a total number of time of the run to be 10 minutes just for convenience, but this does not affect the correctness
-		numEpochs := 10 * 60 * 1000 / rp.timeEpochSize
-		s2 := rand.NewSource(39)
-		r2 := rand.New(s2)
-
-		for i := 0; i < numEpochs; i++ {
-			rp.asynchronousReplicas[i] = []int{}
-			for j := 0; j < rp.numReplicas/2; j++ {
-				newReplica := r2.Intn(39)%rp.numReplicas + 1
-				for rp.inArray(rp.asynchronousReplicas[i], newReplica) {
-					newReplica = r2.Intn(39)%rp.numReplicas + 1
-				}
-				rp.asynchronousReplicas[i] = append(rp.asynchronousReplicas[i], newReplica)
-			}
-		}
-
-		rp.debug(fmt.Sprintf("set of attacked nodes %v ", rp.asynchronousReplicas), -1)
-	}
-
-	rp.baxosConsensus = InitBaxosConsensus(rp, isAsync, roundTripTime)
+	rp.baxosConsensus = InitBaxosConsensus(rp, roundTripTime)
 
 	fmt.Printf("Initialized replica %v\n", rp.id)
 }
@@ -159,19 +132,6 @@ func (rp *Replica) Run() {
 			}
 		}
 	}
-}
-
-/*
-	checks if replica is in ints
-*/
-
-func (rp *Replica) inArray(ints []int, replica int) bool {
-	for i := 0; i < len(ints); i++ {
-		if ints[i] == replica {
-			return true
-		}
-	}
-	return false
 }
 
 //debug printing

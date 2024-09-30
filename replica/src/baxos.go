@@ -48,8 +48,8 @@ type Baxos struct {
 	lastCommittedLogIndex int                   // the last log position that is committed
 	replicatedLog         []BaxosInstance         // the replicated log of commands
 	timer                 *common.TimerWithCancel // the timer for collecting promise / accept responses
-	roundTripTime         int64                   // network round trip time in microseconds
-	timeOutChan           chan int64              // to indicate that the timer has timed out
+	roundTripTime         int                   // network round trip time in microseconds
+	timeOutChan           chan int              // to indicate that the timer has timed out
 
 	isBackingOff bool                    // if the replica is backing off
 	isProposing  bool                    // if the replica is proposing
@@ -68,7 +68,7 @@ type Baxos struct {
 	init Baxos Consensus data structs
 */
 
-func InitBaxosConsensus(replica *Replica, isAsync bool, roundTripTime int64) *Baxos {
+func InitBaxosConsensus(replica *Replica, roundTripTime int) *Baxos {
 
 	replicatedLog := make([]BaxosInstance, 0)
 	// create the genesis slot
@@ -82,26 +82,25 @@ func InitBaxosConsensus(replica *Replica, isAsync bool, roundTripTime int64) *Ba
 		replicatedLog:         replicatedLog,
 		timer:                 nil,
 		roundTripTime:         roundTripTime,
-		timeOutChan:           make(chan int64, 10000),
+		timeOutChan:           make(chan int, 10000),
 		isBackingOff:          false,
 		isProposing:           false,
 		wakeupTimer:           nil,
 		wakeupChan:            make(chan bool, 10000),
 		retries:               0,
 		replica:               replica,
-		isAsync:               isAsync,
 		quorumSize:            int(replica.numReplicas/2 + 1),
 	}
 }
 
 // calculate the backoff time for the proposer
 
-func (rp *Replica) calculateBackOffTime() int64 {
+func (rp *Replica) calculateBackOffTime() int {
 	// k × 2^retries × 2 × RTT
 	k := 1.0 - rand.Float64()
 	rp.debug(fmt.Sprintf("Replica %d: k = %f, roundTripTime = %d, retries = %d", rp.id, k, rp.baxosConsensus.roundTripTime, rp.baxosConsensus.retries), 0)
 	backoffTime := k * math.Pow(2, float64(rp.baxosConsensus.retries+1)) * float64(rp.baxosConsensus.roundTripTime)
-	return int64(backoffTime)
+	return int(backoffTime)
 }
 
 // external API for Baxos messages

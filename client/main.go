@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	id := flag.Int64("id", 51, "name of the client as specified in the local-configuration.yml")
+	id := flag.Int("id", 51, "name of the client as specified in the local-configuration.yml")
 	region := flag.String("region", "", "region of the client")
 	configFile := flag.String("config", "configuration/local-configuration.yml", "configuration file")
 	logFilePath := flag.String("logFilePath", "logs/", "log file path")
@@ -20,10 +20,18 @@ func main() {
 	debugLevel := flag.Int("debugLevel", -1, "debug level int")
 	keyLen := flag.Int("keyLen", 8, "key length")
 	valLen := flag.Int("valLen", 8, "value length")
-	artificialLatency := flag.Int("artificialLatency", 20000, "Duration of artificial latency when sending a message in micro seconds")
-	artificialLatencyMultiplier := flag.Int("artificialLatencyMultiplier", 10, "By how much should the artificial latency be multiplied when sending to a different region")
+	artificialLatencyFlag := flag.Bool("artificialLatency", false, "Should artificial latency be added")
+	roundTripTime := flag.Int("roundTripTime", 40, "round trip time in milliseconds")
 
 	flag.Parse()
+
+	var artificialLatency time.Duration
+
+	if *artificialLatencyFlag {
+		artificialLatency = time.Duration(*roundTripTime/2) * time.Millisecond
+	} else {
+		artificialLatency = 0
+	}
 
 	cfg, err := common.NewInstanceConfig(*configFile, *id)
 	if err != nil {
@@ -56,7 +64,7 @@ func main() {
 	outgoingChan := make(chan common.Message, 10000000)
 	incomingChan := make(chan common.Message, 10000000)
 
-	network := common.NewNetwork(int(*id), (*debugLevel == 0 && *debugOn), *artificialLatency, *artificialLatencyMultiplier, outgoingChan, incomingChan)
+	network := common.NewNetwork(int(*id), (*debugLevel == 0 && *debugOn), artificialLatency, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 	
 	cl := src.New(int(*id), *logFilePath, *testDuration, *arrivalRate, *writeRequestRatio, *debugOn, *debugLevel, *keyLen, *valLen, incomingChan, outgoingChan, *region)
@@ -72,5 +80,5 @@ func main() {
 	fmt.Printf("Finish sending requests \n")
 	cl.SendPrintLogRequest()
 	cl.ComputeStats()
-	time.Sleep(time.Duration(*artificialLatency * *artificialLatencyMultiplier) * time.Microsecond) // wait for max latency to ensure all logs are printed
+	time.Sleep(artificialLatency) // wait for max latency to ensure all logs are printed
 }

@@ -16,8 +16,6 @@ type Replica struct {
 
 	replicaNodes []int
 
-	region string // region of the replica
-
 	numReplicas int
 
 	messageCodes common.MessageCode
@@ -27,7 +25,6 @@ type Replica struct {
 
 	logFilePath string // the path to write the log, used for sanity checks
 
-	debugOn    bool // if turned on, the debug messages will be printed on the console
 	debugLevel int  // current debug level
 
 	baxosConsensus *Baxos // Baxos consensus data structs
@@ -45,42 +42,37 @@ type Replica struct {
 	instantiate a new replica instance, allocate the buffers
 */
 
-func New(id int, logFilePath string, debugOn bool, debugLevel int, benchmarkMode int, keyLen int, 
-		 valLen int, incomingChan <-chan common.Message, outgoingChan chan<- common.Message,
-		 region string) *Replica {
+func New(id int, logFilePath string, cfg *common.Config, incomingChan <-chan common.Message, outgoingChan chan<- common.Message) *Replica {
 	return &Replica{
 		id:         id,
-		region: 	region,
-		replicaNodes:  make([]int, 0),
 
-		messageCodes: common.GetRPCCodes(),
+		logFilePath: logFilePath,
+
+		debugLevel:    cfg.Flags.ReplicaFlags.DebugLevel,
+		benchmarkMode:    cfg.Flags.ReplicaFlags.BenchmarkMode,
+		listenAddress: cfg.GetAddress(id),
+		numReplicas: len(cfg.Replicas),
 
 		incomingChan: incomingChan,
 		outgoingChan: outgoingChan,
 
-		logFilePath: logFilePath,
-
-		debugOn:       debugOn,
-		debugLevel:    debugLevel,
-
+		messageCodes: common.GetRPCCodes(),
 		logPrinted:       false,
-		benchmarkMode:    benchmarkMode,
+
+		replicaNodes:  make([]int, 0),
 		incomingWriteRequests: make([]*common.WriteRequest, 0),
 		incomingReadRequests:  make(map[string]*ReadRequestInstance),
 	}	
 }
 
-func (rp *Replica) Init(cfg *common.InstanceConfig, roundTripTime int) {
-	rp.numReplicas = len(cfg.Replicas)
-	rp.listenAddress = common.GetAddress(cfg.Replicas, rp.id)
-
+func (rp *Replica) Init(cfg *common.Config) {
 	// initialize replicaNodes
 	for i := 0; i < len(cfg.Replicas); i++ {
 		id, _ := strconv.ParseInt(cfg.Replicas[i].Id, 10, 32)
 		rp.replicaNodes = append(rp.replicaNodes, int(id))
 	}
 
-	rp.baxosConsensus = InitBaxosConsensus(rp, roundTripTime)
+	rp.baxosConsensus = InitBaxosConsensus(rp.id, int(rp.numReplicas/2 + 1), cfg.Flags.ReplicaFlags.RoundTripTime)
 
 	fmt.Printf("Initialized replica %v\n", rp.id)
 }
@@ -94,7 +86,7 @@ func (rp *Replica) Run() {
 	for {
 		select {
 		case <-rp.baxosConsensus.wakeupChan:
-			rp.proposeAfterBackingOff()
+			rp.prepareAfterBackoff()
 		case instance := <-rp.baxosConsensus.timeOutChan:
 			rp.randomBackOff(instance)
 		case replicaMessage := <-rp.incomingChan:
@@ -136,7 +128,7 @@ func (rp *Replica) Run() {
 
 //debug printing
 func (rp *Replica) debug(s string, i int) {
-	if rp.debugOn && i >= rp.debugLevel {
+	if i >= rp.debugLevel {
 		fmt.Print(s + "\n")
 	}
 }

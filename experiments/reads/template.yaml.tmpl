@@ -3,11 +3,10 @@ services:
   client_{{ $client.id }}:
     container_name: {{ $client.domain }}
     build:
-      dockerfile: experiments/baxos-read-lease/client.dockerfile
+      dockerfile: experiments/reads/client.dockerfile
       context: ../../
     environment:
       CLIENT_ID: {{ $client.id }}
-      CLIENT_REGION: {{ $client.region }}
     volumes:
       - logs:/logs
     depends_on:
@@ -20,11 +19,10 @@ services:
   replica_{{ $replica.id }}:
     container_name: {{ $replica.domain }}
     build:
-      dockerfile: experiments/baxos-read-lease/replica.dockerfile
+      dockerfile: experiments/reads/replica.dockerfile
       context: ../../
     environment:
       REPLICA_ID: {{ $replica.id }}
-      REPICA_REGION: {{ $replica.region }}
     volumes:
       - logs:/logs
 {{- end }}

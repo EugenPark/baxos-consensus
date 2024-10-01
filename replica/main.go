@@ -7,33 +7,16 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 )
 
 func main() {
 	id := flag.Int("id", 1, "Id of the replica as specified in the local-configuration.yml")
-	region := flag.String("region", "", "region of the replica")
 	configFile := flag.String("config", "configuration/local-configuration.yml", "configuration file")
 	logFilePath := flag.String("logFilePath", "logs/", "log file path")
-	debugOn := flag.Bool("debugOn", false, "false or true")
-	debugLevel := flag.Int("debugLevel", -1, "debug level")
-	roundTripTime := flag.Int("roundTripTime", 40, "round trip time in milliseconds")
-	keyLen := flag.Int("keyLen", 8, "key length")
-	valLen := flag.Int("valLen", 8, "value length")
-	benchmarkMode := flag.Int("benchmarkMode", 0, "0: resident store, 1: redis")
-	artificialLatencyFlag := flag.Bool("artificialLatency", false, "Should artificial latency be added")
 
 	flag.Parse()
 
-	var artificialLatency time.Duration
-
-	if *artificialLatencyFlag {
-		artificialLatency = time.Duration(*roundTripTime/2) * time.Millisecond
-	} else {
-		artificialLatency = 0
-	}
-
-	cfg, err := common.NewInstanceConfig(*configFile, *id)
+	cfg, err := common.ParseConfig(*configFile, *id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "load config: %v\n", err)
 		panic(err)
@@ -89,13 +72,11 @@ func main() {
 	outgoingChan := make(chan common.Message, 1000000)
 	incomingChan := make(chan common.Message, 1000000)
 
-	network := common.NewNetwork(int(*id), (*debugLevel == 0 && *debugOn), artificialLatency, outgoingChan, incomingChan)
+	network := common.NewNetwork(*id, cfg, outgoingChan, incomingChan)
 	network.Init(rpcConfigs, cfg)
 
-	rp := src.New(int(*id), *logFilePath, *debugOn,
-		          *debugLevel, *benchmarkMode, *keyLen, *valLen,
-				  incomingChan, outgoingChan, *region)
-	rp.Init(cfg, *roundTripTime)
+	rp := src.New(int(*id), *logFilePath, cfg, incomingChan, outgoingChan)
+	rp.Init(cfg)
 
 	var wg sync.WaitGroup
 	wg.Add(1)

@@ -9,7 +9,7 @@ import (
 
 func (rp *Replica) handleWriteRequest(request *common.WriteRequest) {
 	rp.incomingWriteRequests = append(rp.incomingWriteRequests, request)
-	rp.tryPropose()
+	rp.tryPrepare()
 }
 
 func (rp *Replica) handleReadRequest(request *common.ReadRequest) {
@@ -47,8 +47,7 @@ func (rp *Replica) sendClientReadResponse(uniqueId string, to int) {
 // send back the client responses
 func (rp *Replica) sendClientResponse(response *common.WriteResponse, to int) {
 	if to == -1 {
-		rp.debug("Ignore empty decided value", 0)
-		return
+		panic("Invalid client id")
 	}
 	rp.outgoingChan <- common.Message {
 		From: rp.id,

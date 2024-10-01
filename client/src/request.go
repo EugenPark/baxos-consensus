@@ -20,15 +20,20 @@ func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 	id := response.UniqueId
 
 	// check if key already exists
+	cl.requestsMutex.Lock()
+	defer cl.requestsMutex.Unlock()
 	writeRequest, ok := cl.requests[id]
 	if !ok {
 		cl.debug(fmt.Sprintf("Received response for a write request with id %s that was not sent", id), 0)
 		panic("should not happen")
 	}
-	writeRequest.endTime()
+	if writeRequest.isCompleted() {
+		cl.debug(fmt.Sprintf("Already received write response for this id %s", id), 0)
+		return
+	}
 
+	writeRequest.endTime()
 	cl.debug("Added write response with id " + id, 1)
-	
 }
 
 func (cl *Client) handleReadResponse(response *common.ReadResponse) {
@@ -38,6 +43,8 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 
 	id := response.UniqueId
 
+	cl.requestsMutex.Lock()
+	defer cl.requestsMutex.Unlock()
 	// check if key already exists
 	readRequest, ok := cl.requests[id]
 	if !ok {
@@ -49,6 +56,7 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 		cl.debug(fmt.Sprintf("Already received read response for this id %s", id), 0)
 		return
 	}
+
 	readRequest.endTime()
 	if response.Command == nil {
 		readRequest.command = ""
@@ -91,6 +99,8 @@ func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
 	}
 	request.startTime()
 
+	cl.requestsMutex.Lock()
+	defer cl.requestsMutex.Unlock()
 	cl.requests[uniqueId] = &request
 	
 	return common.RPCPair {
@@ -106,6 +116,8 @@ func (cl *Client) generateReadRPCPair(uniqueId string) common.RPCPair {
 	}
 	request.startTime()
 
+	cl.requestsMutex.Lock()
+	defer cl.requestsMutex.Unlock()
 	cl.requests[uniqueId] = &request
 
 	return common.RPCPair {

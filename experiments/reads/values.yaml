@@ -1,27 +1,37 @@
 replicas:
-  - region: eu
-    id: 0
-    domain: "replica_0.eu"
+  - id: 0
+    domain: "replica_0"
     port: 8080
-  - region: eu
-    id: 1
-    domain: "replica_1.eu"
+  - id: 1
+    domain: "replica_1"
     port: 8080
-  - region: as
-    id: 2
-    domain: "replica_2.as"
+  - id: 2
+    domain: "replica_2"
     port: 8080
-  - region: as
-    id: 3
-    domain: "replica_3.as"
+  - id: 3
+    domain: "replica_3"
     port: 8080
 
 clients:
-  - region: eu
-    id: 11
-    domain: "client_11.eu"
+  - id: 11
+    domain: "client_11"
     port: 8080
-  # - region: as
-  #   id: 12
-  #   domain: "client_12.as"
+  # - id: 12
+  #   domain: "client_12"
   #   port: 8080
+
+flags:
+  client:
+    debugLevel: 3
+    keyLength: 8
+    valueLength: 8
+    writeRequestRatio: 0.5
+    arrivalRate: 1
+    testDuration: 60
+  network:
+    artificialLatency: 20 # in ms
+    debugLevel: 0 # <=0 means no debug
+  replica:
+    debugLevel: 10
+    benchmarkMode: 0
+    roundTripTime: 40 # in ms

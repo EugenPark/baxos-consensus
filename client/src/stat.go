@@ -87,6 +87,10 @@ func (cl *Client) ComputeStats() {
 	}
 	defer f.Close()
 
+	// lock the requests map for the duration of reading the stats
+	cl.requestsMutex.Lock()
+	defer cl.requestsMutex.Unlock()
+
 	// compute the stats
 
 	// latency

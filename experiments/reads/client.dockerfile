@@ -12,8 +12,8 @@ RUN mkdir client && \
 
 COPY client client
 COPY common common
-COPY experiments/baxos-read-lease/values.yaml configuration
+COPY experiments/reads/values.yaml configuration
 
 RUN go build -o /baxos/bin/baxos-client /baxos/client
 
-CMD [ "sh", "-c", "/baxos/bin/baxos-client -id=\"${CLIENT_ID}\" -region=${CLIENT_REGION} -logFilePath=/logs/ -config=\"./configuration/values.yaml\" -debugOn -debugLevel=10 -testDuration=60 -arrivalRate=1 -artificialLatency=20000 -artificialLatencyMultiplier=10 -writeRequestRatio=0.5" ]
+CMD [ "sh", "-c", "/baxos/bin/baxos-client -id=${CLIENT_ID} -logFilePath=/logs/ -config=./configuration/values.yaml" ]

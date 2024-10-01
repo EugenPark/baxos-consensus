@@ -1,7 +1,6 @@
 package common
 
 import (
-	"strconv"
 	"time"
 )
 
@@ -31,19 +30,6 @@ type RPCPair struct {
 type OutgoingRPC struct {
 	RpcPair *RPCPair
 	Peer    int32
-}
-
-/*
-	Returns the self ip:port
-*/
-
-func GetAddress(nodes []Instance, id int) string {
-	for i := 0; i < len(nodes); i++ {
-		if nodes[i].Id == strconv.Itoa(id) {
-			return nodes[i].Domain + ":" + nodes[i].Port
-		}
-	}
-	panic("should not happen")
 }
 
 /*

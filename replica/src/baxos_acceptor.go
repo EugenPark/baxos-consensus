@@ -11,37 +11,41 @@ import (
 
 func (rp *Replica) processPrepare(message *common.PrepareRequest) *common.PromiseReply {
 	if message == nil {
-		return nil
+		panic("nil prepare message")
 	}
+
 	rp.createInstance(int(message.InstanceNumber))
 
-	if rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided {
+	baxos := rp.baxosConsensus
+	baxosInstance := &baxos.replicatedLog[message.InstanceNumber]
+
+	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d: Already decided, hence sending a promise reply with the decided value", message.InstanceNumber), 1)
-		
 		return &common.PromiseReply {
 			InstanceNumber: message.InstanceNumber,
 			Promise:        false,
 			Decided:        true,
-			DecidedValue:   rp.baxosConsensus.replicatedLog[message.InstanceNumber].decidedValue,
+			DecidedValue:   baxosInstance.decidedValue,
 			Sender:         int64(rp.id),
 		}
 	}
 
-	promisedBallot := rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.promisedBallot
-	if !promisedBallot.IsGreaterThan(message.PrepareBallot) {
-		rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.promisedBallot = message.PrepareBallot
-		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d, Ballot (%d, %d): Prepare accepted, hence sending a promise reply", message.InstanceNumber, message.PrepareBallot.ReplicaId, message.PrepareBallot.Number), 1)
-		
-		return &common.PromiseReply {
-			InstanceNumber:     message.InstanceNumber,
-			Promise:            true,
-			LastPromisedBallot: message.PrepareBallot,
-			LastAcceptedBallot: rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.acceptedBallot,
-			LastAcceptedValue:  rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.acceptedValue,
-			Sender:             int64(rp.id),
-		}
+	if baxosInstance.acceptorBookkeeping.promisedBallot.IsGreaterThan(message.PrepareBallot) {
+		return nil
 	}
-	return nil
+	
+	baxosInstance.acceptorBookkeeping.promisedBallot = message.PrepareBallot
+	rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d, Ballot (%d, %d): Prepare accepted, hence sending a promise reply", message.InstanceNumber, message.PrepareBallot.ReplicaId, message.PrepareBallot.Number), 3)
+		
+
+	return &common.PromiseReply {
+		InstanceNumber:     message.InstanceNumber,
+		Promise:            true,
+		LastPromisedBallot: message.PrepareBallot,
+		LastAcceptedBallot: baxosInstance.acceptorBookkeeping.acceptedBallot,
+		LastAcceptedValue:  baxosInstance.acceptorBookkeeping.acceptedValue,
+		Sender:             int64(rp.id),
+	}	
 }
 
 /*
@@ -49,7 +53,6 @@ func (rp *Replica) processPrepare(message *common.PrepareRequest) *common.Promis
 */
 
 func (rp *Replica) handlePrepare(message *common.PrepareRequest) {
-
 	promiseReply := rp.processPrepare(message)
 
 	if promiseReply == nil {
@@ -74,36 +77,37 @@ func (rp *Replica) handlePrepare(message *common.PrepareRequest) {
 
 func (rp *Replica) processPropose(message *common.ProposeRequest) *common.AcceptReply {
 	rp.createInstance(int(message.InstanceNumber))
+	baxos := rp.baxosConsensus
+	baxosInstance := &baxos.replicatedLog[message.InstanceNumber]
 
-	if rp.baxosConsensus.replicatedLog[message.InstanceNumber].decided {
-		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d: Already decided, hence sending a accept reply with the decided value", message.InstanceNumber), 1)
+	if baxosInstance.decided {
+		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d: Already decided, hence sending a accept reply with the decided value", message.InstanceNumber), 4)
 		
 		return &common.AcceptReply{
 			InstanceNumber: message.InstanceNumber,
 			Accept:         false,
 			Decided:        true,
-			DecidedValue:   rp.baxosConsensus.replicatedLog[message.InstanceNumber].decidedValue,
+			DecidedValue:   baxosInstance.decidedValue,
 			Sender:         int64(rp.id),
 		}
 	}
 
-	promisedBallot := rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.promisedBallot
+	promisedBallot := rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptorBookkeeping.promisedBallot
 	if !promisedBallot.IsGreaterThan(message.ProposeBallot) {
-		rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.acceptedBallot = message.ProposeBallot
-		rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptor_bookkeeping.acceptedValue = message.ProposeValue
-		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d, Ballot (%d, %d): Accepted propose, hence sending a accept", message.InstanceNumber, message.ProposeBallot.ReplicaId, message.ProposeBallot.Number), 1)
+		rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptorBookkeeping.acceptedBallot = message.ProposeBallot
+		rp.baxosConsensus.replicatedLog[message.InstanceNumber].acceptorBookkeeping.acceptedValue = message.ProposeValue
+		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d, Ballot (%d, %d): Accepted propose, hence sending a accept", message.InstanceNumber, message.ProposeBallot.ReplicaId, message.ProposeBallot.Number), 3)
 		
 		return &common.AcceptReply{
 			InstanceNumber: message.InstanceNumber,
 			Accept:         true,
 			AcceptBallot:   message.ProposeBallot,
-			Sender:         int64(rp.id),
+			Sender:         message.Sender,
 		}
-	} else {
-		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d, Ballot (%d, %d): Propose rejected", message.InstanceNumber, message.ProposeBallot.ReplicaId, message.ProposeBallot.Number), 1)
-		
-		return nil
 	}
+
+	rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d, Ballot (%d, %d): Propose rejected", message.InstanceNumber, message.ProposeBallot.ReplicaId, message.ProposeBallot.Number), 3)
+	return nil
 }
 
 /*
@@ -143,11 +147,11 @@ func (rp *Replica) handlePropose(message *common.ProposeRequest) {
 }
 
 func (rp *Replica) handleReadPrepare(prepare *common.ReadPrepare, from int) {
+	baxos := rp.baxosConsensus
 	lastDecidedCommand := &common.Command{}
-	index := rp.baxosConsensus.lastCommittedLogIndex
 
-	if index >= 0 {
-		lastDecidedCommand = rp.baxosConsensus.replicatedLog[rp.baxosConsensus.lastCommittedLogIndex].decidedValue.Command
+	if baxos.lastCommittedLogIndex > 0 && baxos.replicatedLog[baxos.lastCommittedLogIndex].decided {
+		lastDecidedCommand = baxos.replicatedLog[rp.baxosConsensus.lastCommittedLogIndex].decidedValue.Command
 	}
 	
 	rp.outgoingChan <- common.Message {
@@ -158,7 +162,7 @@ func (rp *Replica) handleReadPrepare(prepare *common.ReadPrepare, from int) {
 			Obj:  &common.ReadPromise {
 				UniqueId: prepare.UniqueId,
 				Command: lastDecidedCommand,
-				Index:  int64(index),
+				Index:  int64(baxos.lastCommittedLogIndex),
 				Sender: prepare.Sender,
 			},
 		},

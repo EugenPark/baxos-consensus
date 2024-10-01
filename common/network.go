@@ -40,7 +40,7 @@ type Network struct {
 	artificialLatency time.Duration // Artificial latency to simulate network delay
 	nodes map[int]*Node
 	rpcTable map[uint8]*RPCPair
-	debugOn bool
+	debugLevel int
 }
 
 /*
@@ -52,33 +52,33 @@ func (n *Network) RegisterRPC(msgObj Serializable, code uint8) {
 	n.rpcTable[code] = &RPCPair{Code: code, Obj: msgObj}
 }
 
-func NewNetwork(id int, debugOn bool, artificialLatency time.Duration, outgoingChan <-chan Message, incomingChan chan<- Message) *Network {
+func NewNetwork(id int, config *Config, outgoingChan <-chan Message, incomingChan chan<- Message) *Network {
 	return &Network{
 		app: Application{
 			id: id,
 			incomingChan: incomingChan,
 			outgoingChan: outgoingChan,
 		},
-		artificialLatency: artificialLatency,
+		artificialLatency: time.Duration(config.Flags.NetworkFlags.ArtificialLatency) * time.Millisecond,
 		nodes: make(map[int]*Node),
 		rpcTable: make(map[uint8]*RPCPair),
-		debugOn: debugOn,
+		debugLevel: config.Flags.NetworkFlags.DebugLevel,
 	}
 }
 
-func (n *Network) Init(rpcToRegister []RPCConfig, config *InstanceConfig)  {
-	for i := 0; i < len(config.Clients); i++ {
+func (n *Network) Init(rpcToRegister []RPCConfig, config *Config)  {
+	for i := range config.Clients {
 		id, _ := strconv.ParseInt(config.Clients[i].Id, 10, 32)
 		n.nodes[int(id)] = &Node{
-			address: config.Clients[i].Domain + ":" + config.Clients[i].Port,
+			address: config.GetAddress(int(id)),
 			outgoingWriterMutex: &sync.Mutex{},
 		}
 	}
 
-	for i := 0; i < len(config.Replicas); i++ {
+	for i := range config.Replicas {
 		id, _ := strconv.ParseInt(config.Replicas[i].Id, 10, 32)
 		n.nodes[int(id)] = &Node{
-			address: config.Replicas[i].Domain + ":" + config.Replicas[i].Port,
+			address: config.GetAddress(int(id)),
 			outgoingWriterMutex: &sync.Mutex{},
 		}
 	}
@@ -95,7 +95,7 @@ func (n *Network) Run() {
 	go n.StartSendServer()
 }
 
-func (n *Network) ConnectToNode(sender int, receiver *Node) {
+func (n *Network) ConnectToNode(receiver *Node) {
 	var b [4]byte
 	bs := b[:4]
 
@@ -105,7 +105,7 @@ func (n *Network) ConnectToNode(sender int, receiver *Node) {
 	}
 
 	receiver.outgoingWriter = bufio.NewWriter(conn)
-	binary.LittleEndian.PutUint16(bs, uint16(sender))
+	binary.LittleEndian.PutUint16(bs, uint16(n.app.id))
 	_, err = conn.Write(bs)
 	if err != nil {
 		panic("Error while writing to node " + receiver.address)
@@ -114,7 +114,7 @@ func (n *Network) ConnectToNode(sender int, receiver *Node) {
 
 func (n *Network) ConnectToAllNodes() {
 	for _, receiver := range n.nodes {
-		n.ConnectToNode(n.app.id, receiver)
+		n.ConnectToNode(receiver)
 	}
 }
 
@@ -136,7 +136,7 @@ func (n *Network) ConnectionHandler(reader *bufio.Reader, from int) {
 
 		rpair, present := n.rpcTable[msgType];
 		if !present {
-			n.debug("Error received unknown message type " + strconv.Itoa(int(msgType)) + " from "+strconv.Itoa(int(from)))
+			n.debug(fmt.Sprintf("Error received unknown message type %d from %d", msgType, from))
 			return
 		}
 
@@ -147,20 +147,22 @@ func (n *Network) ConnectionHandler(reader *bufio.Reader, from int) {
 			return
 		}
 
-		rpcPair := &RPCPair{
-			Code: msgType,
-			Obj:  obj,
-		}
-
 		msg := Message {
 			From: from,
 			To: n.app.id,
-			RpcPair: rpcPair,
+			RpcPair: &RPCPair{
+				Code: msgType,
+				Obj:  obj,
+			},
 		}
 		
 		n.app.incomingChan <- msg
 		n.debug(fmt.Sprintf("Received a message %v from %d", *msg.RpcPair, from))
 	}
+}
+
+func (n *Network) getOwnAddress() string {
+	return n.nodes[n.app.id].address
 }
 
 /*
@@ -170,13 +172,13 @@ func (n *Network) ConnectionHandler(reader *bufio.Reader, from int) {
 func (n *Network) StartListenServer() {
 	var b [4]byte
 	bs := b[:4]
-	Listener, err := net.Listen("tcp", n.nodes[n.app.id].address)
+	Listener, err := net.Listen("tcp", n.getOwnAddress())
 
 	if err != nil {
 		panic("Error while listening to incoming connections")
 	}
 
-	n.debug("Listening to incoming connections in " + n.nodes[n.app.id].address)
+	n.debug("Listening to incoming connections in " + n.getOwnAddress())
 
 	for {
 		conn, err := Listener.Accept()
@@ -187,11 +189,11 @@ func (n *Network) StartListenServer() {
 			panic(fmt.Sprintf("%v", err.Error()))
 		}
 		id := int(binary.LittleEndian.Uint16(bs))
-		n.debug("Received incoming connection from "+strconv.Itoa(int(id)))
+		n.debug(fmt.Sprintf("Received incoming connection from %d", id))
 		n.nodes[id].incomingReader = bufio.NewReader(conn)
 
 		go n.ConnectionHandler(n.nodes[id].incomingReader, id)
-		n.debug("Started listening to "+ strconv.Itoa(int(id)))
+		n.debug(fmt.Sprintf("Started listening to %d", id))
 	}
 }
 
@@ -219,7 +221,7 @@ func (n *Network) SendMessage(message Message) {
 	w := to.outgoingWriter
 	if w == nil {
 		n.debug(fmt.Sprintf("Outgoing Writer %v", to.outgoingWriter))
-		panic("Node not found " + strconv.Itoa(int(message.To)))
+		panic(fmt.Sprintf("Node not found %d", message.To))
 	}
 
 	to.outgoingWriterMutex.Lock()
@@ -231,19 +233,19 @@ func (n *Network) SendMessage(message Message) {
 	}
 	err = message.RpcPair.Obj.Marshal(w)
 	if err != nil {
-		n.debug("Error while marshalling:"+err.Error())
+		n.debug("Error while marshalling: " + err.Error())
 		return
 	}
 	err = w.Flush()
 	if err != nil {
-		n.debug("Error while flushing:"+err.Error())
+		n.debug("Error while flushing: " + err.Error())
 		return
 	}
-	n.debug(fmt.Sprintf("Sent a message %v from %d to %d",*(message.RpcPair), message.From, message.To))
+	n.debug(fmt.Sprintf("Sent a message %v from %d to %d", *(message.RpcPair), message.From, message.To))
 }
 
 func (n *Network) debug(s string) {
-	if n.debugOn {
+	if n.debugLevel > 0 {
 		fmt.Print(s + "\n")
 	}
 }

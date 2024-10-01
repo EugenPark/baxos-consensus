@@ -1,12 +1,11 @@
 services:
   client_11:
-    container_name: client_11.eu
+    container_name: client_11
     build:
-      dockerfile: experiments/baxos-read-lease/client.dockerfile
+      dockerfile: experiments/reads/client.dockerfile
       context: ../../
     environment:
       CLIENT_ID: 11
-      CLIENT_REGION: eu
     volumes:
       - logs:/logs
     depends_on:
@@ -16,43 +15,39 @@ services:
       - replica_3
 
   replica_0:
-    container_name: replica_0.eu
+    container_name: replica_0
     build:
-      dockerfile: experiments/baxos-read-lease/replica.dockerfile
+      dockerfile: experiments/reads/replica.dockerfile
       context: ../../
     environment:
       REPLICA_ID: 0
-      REPICA_REGION: eu
     volumes:
       - logs:/logs
   replica_1:
-    container_name: replica_1.eu
+    container_name: replica_1
     build:
-      dockerfile: experiments/baxos-read-lease/replica.dockerfile
+      dockerfile: experiments/reads/replica.dockerfile
       context: ../../
     environment:
       REPLICA_ID: 1
-      REPICA_REGION: eu
     volumes:
       - logs:/logs
   replica_2:
-    container_name: replica_2.as
+    container_name: replica_2
     build:
-      dockerfile: experiments/baxos-read-lease/replica.dockerfile
+      dockerfile: experiments/reads/replica.dockerfile
       context: ../../
     environment:
       REPLICA_ID: 2
-      REPICA_REGION: as
     volumes:
       - logs:/logs
   replica_3:
-    container_name: replica_3.as
+    container_name: replica_3
     build:
-      dockerfile: experiments/baxos-read-lease/replica.dockerfile
+      dockerfile: experiments/reads/replica.dockerfile
       context: ../../
     environment:
       REPLICA_ID: 3
-      REPICA_REGION: as
     volumes:
       - logs:/logs
 

@@ -67,6 +67,10 @@ func main() {
 			Code: common.GetRPCCodes().ReadPromise,
 			MsgObj: new(common.ReadPromise),
 		},
+		{
+			Code: common.GetRPCCodes().DecideInfo,
+			MsgObj: new(common.DecideInfo),
+		},
 	}
 
 	outgoingChan := make(chan common.Message, 1000000)

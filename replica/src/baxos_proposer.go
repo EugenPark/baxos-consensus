@@ -3,7 +3,6 @@ package src
 import (
 	"baxos/common"
 	"fmt"
-	"time"
 )
 
 /*
@@ -12,7 +11,7 @@ import (
 
 func (rp *Replica) setTimer(instance int) {
 	baxos := rp.baxosConsensus
-	baxos.timer = common.NewTimerWithCancel(baxos.roundTripTime * 2 + time.Duration(20) * time.Millisecond) // 2 * RTT
+	baxos.timer = common.NewTimerWithCancel(baxos.roundTripTime * 2 + PROCESSING_TIME) // 2 * RTT
 
 	baxos.timer.SetTimeoutFunction(func() {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Timeout", instance), 3)
@@ -122,15 +121,6 @@ func (rp *Replica) handlePromise(message *common.PromiseReply) {
 		return
 	}
 
-	if message.Decided {
-		baxosInstance.decided = true
-		baxosInstance.decidedValue = message.DecidedValue
-		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: decided using promise response, hence setting the decided value", message.InstanceNumber), 3)
-		
-		rp.updateSMR()
-		return
-	}
-
 	if !message.Promise {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Promise rejected, hence ignoring promise", message.InstanceNumber), 3)
 		return
@@ -217,16 +207,6 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 		return
 	}
 
-	if message.Decided {
-		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: decided using accept response, hence setting the decided value", message.InstanceNumber), 3)
-		
-		baxosInstance.decided = true
-		baxosInstance.decidedValue = message.DecidedValue
-
-		rp.updateSMR()
-		return
-	}
-
 	if baxosInstance.proposerBookkeeping.numSuccessfulAccepts >= baxos.quorumSize {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Already enough accepts, hence ignoring the accept", message.InstanceNumber), 3)
 		return
@@ -251,8 +231,6 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 		baxosInstance.decided = true
 		baxosInstance.decidedValue = baxosInstance.proposerBookkeeping.proposedValue
 
-		rp.updateSMR()
-
 		rp.baxosConsensus.isPreparing = false
 		rp.baxosConsensus.isBackingOff = false
 
@@ -271,36 +249,18 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 		}
 
 		rp.baxosConsensus.wakeupTimer = nil
-	}
-}
 
-// Reads
-
-func (rp *Replica) sendReadPrepare(request *common.ReadRequest) {
-	for _, replicaId := range rp.replicaNodes {
-		rp.outgoingChan <- common.Message {
-			From:    rp.id,
-			To:      replicaId,
-			RpcPair: &common.RPCPair{Code: rp.messageCodes.ReadPrepare, Obj: &common.ReadPrepare{
-				UniqueId: request.UniqueId,
-				Sender:  request.Sender,
-			}},
+		for _, replicaId := range rp.replicaNodes {
+			decideInfo := common.DecideInfo {
+				InstanceNumber: int64(message.InstanceNumber),
+				DecidedValue:   baxosInstance.decidedValue,
+			}
+			rp.outgoingChan <- common.Message {
+				From:    rp.id,
+				To:      replicaId,
+				RpcPair: &common.RPCPair{Code: rp.messageCodes.DecideInfo, Obj: &decideInfo},
+			}
+			rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Sent decide info to %d", message.InstanceNumber, replicaId), 3)
 		}
-	}
-}
-
-func (rp *Replica) handleReadPromise(message *common.ReadPromise) {
-	uniqueId := message.UniqueId
-	rp.debug(fmt.Sprintf("READER: UniqueId %s: Received a promise from %d", message.UniqueId, message.Sender), 1)
-
-	if len(rp.incomingReadRequests[uniqueId].responses) >= rp.baxosConsensus.quorumSize {
-		rp.debug(fmt.Sprintf("READER: UniqueId %s: Already received enough promises, hence ignoring the promise", uniqueId), 1)
-		return
-	}
-
-	rp.incomingReadRequests[uniqueId].responses = append(rp.incomingReadRequests[uniqueId].responses, message)
-	if len(rp.incomingReadRequests[uniqueId].responses) == rp.baxosConsensus.quorumSize {
-		rp.debug(fmt.Sprintf("READER: UniqueId %s: Received quorum of promises, hence sending the read response", uniqueId), 1)
-		rp.sendClientReadResponse(uniqueId, int(message.Sender))
 	}
 }

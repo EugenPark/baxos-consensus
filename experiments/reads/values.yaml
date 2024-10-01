@@ -16,9 +16,9 @@ clients:
   - id: 11
     domain: "client_11"
     port: 8080
-  # - id: 12
-  #   domain: "client_12"
-  #   port: 8080
+  - id: 12
+    domain: "client_12"
+    port: 8080
 
 flags:
   client:
@@ -32,6 +32,6 @@ flags:
     artificialLatency: 20 # in ms
     debugLevel: 0 # <=0 means no debug
   replica:
-    debugLevel: 10
+    debugLevel: 4
     benchmarkMode: 0
     roundTripTime: 40 # in ms

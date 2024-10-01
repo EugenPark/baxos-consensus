@@ -33,6 +33,7 @@ type MessageCode struct {
 	AcceptReply     uint8
 	ReadPrepare     uint8
 	ReadPromise    	uint8
+	DecideInfo      uint8
 }
 
 /*
@@ -45,13 +46,14 @@ func GetRPCCodes() MessageCode {
 		ReadRequest:     2,
 		WriteResponse:   3,
 		ReadResponse:	 4,
-		PrintLog:       5,
+		PrintLog:        5,
 		PrepareRequest:  6,
 		PromiseReply:    7,
 		ProposeRequest:  8,
 		AcceptReply:     9,
 		ReadPrepare:    10,
 		ReadPromise:    11,
+		DecideInfo:     12,
 	}
 }
 
@@ -248,4 +250,18 @@ func (t *AcceptReply) Unmarshal(wire io.Reader) error {
 
 func (t *AcceptReply) New() Serializable {
 	return new(AcceptReply)
+}
+
+// DecideInfo wrapper
+
+func (t *DecideInfo) Marshal(wire io.Writer) error {
+	return marshalMessage(wire, t)
+}
+
+func (t *DecideInfo) Unmarshal(wire io.Reader) error {
+	return unmarshalMessage(wire, t)
+}
+
+func (t *DecideInfo) New() Serializable {
+	return new(DecideInfo)
 }

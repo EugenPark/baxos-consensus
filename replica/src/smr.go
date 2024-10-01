@@ -19,15 +19,17 @@ func (rp *Replica) handleReadRequest(request *common.ReadRequest) {
 	rp.sendReadPrepare(request)
 }
 
-func (rp *Replica) sendClientReadResponse(uniqueId string, to int) {
+func (rp *Replica) sendClientReadResponse(uniqueId string) {
 	var latestIndex int64
 	latestIndex = -1
 	latestCommand := &common.Command{}
+	var to int
 
 	for _, response := range rp.incomingReadRequests[uniqueId].responses {
 		if response.Index > latestIndex {
 			latestIndex = response.Index
 			latestCommand = response.Command
+			to = int(response.ReadRequest.Sender)
 		}
 	}
 

@@ -83,6 +83,11 @@ func (rp *Replica) Init(cfg *common.Config) {
 */
 
 func (rp *Replica) Run() {
+	go rp.runBaxosAcceptor()
+	go rp.runBaxosLearner()
+	go rp.runBaxosProposer()
+	go rp.runBaxosReader()
+
 	for {
 		select {
 		case <-rp.baxosConsensus.wakeupChan:
@@ -102,25 +107,55 @@ func (rp *Replica) Run() {
 				writeRequest := replicaMessage.RpcPair.Obj.(*common.WriteRequest)
 				rp.debug(fmt.Sprintf("Client write request message from %#v", writeRequest.Sender), 0)
 				rp.handleWriteRequest(writeRequest)
-
+			
+			case rp.messageCodes.PrepareRequest:
+				rp.baxosConsensus.acceptorChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.PrepareRequest),
+					code:   rp.messageCodes.PrepareRequest,
+				}
+				
+			case rp.messageCodes.PromiseReply:
+				rp.baxosConsensus.proposerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.PromiseReply),
+					code:   rp.messageCodes.PromiseReply,
+				}
+						
+			case rp.messageCodes.ProposeRequest: 
+				rp.baxosConsensus.acceptorChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.ProposeRequest),
+					code:   rp.messageCodes.ProposeRequest,
+				}
+					
+			case rp.messageCodes.AcceptReply: 
+				rp.baxosConsensus.proposerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.AcceptReply),
+					code:   rp.messageCodes.AcceptReply,
+				}
+				
+			case rp.messageCodes.DecideInfo:
+				rp.baxosConsensus.learnerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.DecideInfo),
+					code:   rp.messageCodes.DecideInfo,
+				}
+				
 			case rp.messageCodes.ReadRequest:
-				readRequest := replicaMessage.RpcPair.Obj.(*common.ReadRequest)
-				rp.debug(fmt.Sprintf("Client read request message from %#v", readRequest.Sender), 0)
-				rp.handleReadRequest(readRequest)
-
+				rp.baxosConsensus.readerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.ReadRequest),
+					code:   rp.messageCodes.ReadRequest,
+				}
+				
 			case rp.messageCodes.ReadPrepare:
-				readPrepare := replicaMessage.RpcPair.Obj.(*common.ReadPrepare)
-				rp.debug(fmt.Sprintf("Read prepare message from %#v", readPrepare.Sender), 0)
-				rp.handleReadPrepare(readPrepare, replicaMessage.From)
-
+				rp.baxosConsensus.readerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.ReadPrepare),
+					code:   rp.messageCodes.ReadPrepare,
+				}
+				
 			case rp.messageCodes.ReadPromise:
-				readPromise := replicaMessage.RpcPair.Obj.(*common.ReadPromise)
-				rp.debug(fmt.Sprintf("Read promise message from %#v", readPromise.Sender), 0)
-				rp.handleReadPromise(readPromise)
-
-			default:
-				rp.debug("Baxos consensus message", 2)
-				rp.handleBaxosConsensus(replicaMessage.RpcPair.Obj, replicaMessage.RpcPair.Code)
+				rp.baxosConsensus.readerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.ReadPromise),
+					code:   rp.messageCodes.ReadPromise,
+				}
+					
 			}
 		}
 	}

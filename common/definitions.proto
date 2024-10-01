@@ -31,6 +31,7 @@ message WriteResponse {
 message ReadPrepare {
   string unique_id = 1;
   int64 sender = 2;
+  ReadRequest read_request = 3;
 }
 
 message ReadPromise {
@@ -38,6 +39,7 @@ message ReadPromise {
   Command command = 2;
   int64 sender = 3;
   int64 index = 4;
+  ReadRequest read_request = 5;
 }
 
 /*
@@ -67,9 +69,7 @@ message PromiseReply {
   Ballot last_accepted_ballot = 4;
   WriteRequest last_accepted_value = 5;
 
-  bool decided = 6; // if the current instance is already decided
-  WriteRequest decided_value = 7;
-  int64 sender = 8;
+  int64 sender = 6;
 }
 
 message DecideInfo {
@@ -81,18 +81,12 @@ message ProposeRequest {
   int64 instance_number = 1;
   Ballot propose_ballot = 2;
   WriteRequest propose_value = 3;
-
   int64 sender = 4;
-  DecideInfo decide_info = 5;
 }
 
 message AcceptReply {
   int64 instance_number = 1;
   bool accept = 2;
   Ballot accept_ballot = 3;
-
-  bool decided = 4; // if the current instance is already decided
-  WriteRequest decided_value = 5;
-
-  int64 sender = 6;
+  int64 sender = 4;
 }

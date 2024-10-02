@@ -51,9 +51,7 @@ func GetRPCCodes() MessageCode {
 		PromiseReply:    7,
 		ProposeRequest:  8,
 		AcceptReply:     9,
-		ReadPrepare:    10,
-		ReadPromise:    11,
-		DecideInfo:     12,
+		DecideInfo:     10,
 	}
 }
 
@@ -110,35 +108,6 @@ func (t *ReadRequest) Unmarshal(wire io.Reader) error {
 func (t *ReadRequest) New() Serializable {
 	return new(ReadRequest)
 }
-
-// ReadPrepare wrapper
-
-func (t *ReadPrepare) Marshal(wire io.Writer) error {
-	return marshalMessage(wire, t)
-}
-
-func (t *ReadPrepare) Unmarshal(wire io.Reader) error {
-	return unmarshalMessage(wire, t)
-}
-
-func (t *ReadPrepare) New() Serializable {
-	return new(ReadPrepare)
-}
-
-// ReadPromise wrapper
-
-func (t *ReadPromise) Marshal(wire io.Writer) error {
-	return marshalMessage(wire, t)
-}
-
-func (t *ReadPromise) Unmarshal(wire io.Reader) error {
-	return unmarshalMessage(wire, t)
-}
-
-func (t *ReadPromise) New() Serializable {
-	return new(ReadPromise)
-}
-
 
 // ReadResponse wrapper
 

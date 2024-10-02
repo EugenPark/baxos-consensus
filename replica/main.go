@@ -60,14 +60,6 @@ func main() {
 			Code: common.GetRPCCodes().AcceptReply,
 		},
 		{
-			Code: common.GetRPCCodes().ReadPrepare,
-			MsgObj: new(common.ReadPrepare),
-		},
-		{
-			Code: common.GetRPCCodes().ReadPromise,
-			MsgObj: new(common.ReadPromise),
-		},
-		{
 			Code: common.GetRPCCodes().DecideInfo,
 			MsgObj: new(common.DecideInfo),
 		},

@@ -25,8 +25,8 @@ flags:
     debugLevel: 3
     keyLength: 8
     valueLength: 8
-    writeRequestRatio: 0.5
-    arrivalRate: 1
+    writeRequestRatio: 0.1
+    arrivalRate: 5
     testDuration: 60
   network:
     artificialLatency: 20 # in ms

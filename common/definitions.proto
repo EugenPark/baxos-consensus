@@ -20,26 +20,13 @@ message ReadResponse {
   string unique_id = 1;
   Command command = 2;
   int64 sender = 3;
+  int64 instance_number = 4;
 }
 
 message WriteResponse {
   string unique_id = 1;
   bool success = 2;
   int64 sender = 3;
-}
-
-message ReadPrepare {
-  string unique_id = 1;
-  int64 sender = 2;
-  ReadRequest read_request = 3;
-}
-
-message ReadPromise {
-  string unique_id = 1;
-  Command command = 2;
-  int64 sender = 3;
-  int64 index = 4;
-  ReadRequest read_request = 5;
 }
 
 /*

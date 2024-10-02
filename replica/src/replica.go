@@ -34,7 +34,6 @@ type Replica struct {
 	benchmarkMode int        // 0 for resident K/V store, 1 for redis
 
 	incomingWriteRequests []*common.WriteRequest // incoming write requests
-	incomingReadRequests  map[string]*ReadRequestInstance  // incoming read requests
 }
 
 
@@ -61,7 +60,6 @@ func New(id int, logFilePath string, cfg *common.Config, incomingChan <-chan com
 
 		replicaNodes:  make([]int, 0),
 		incomingWriteRequests: make([]*common.WriteRequest, 0),
-		incomingReadRequests:  make(map[string]*ReadRequestInstance),
 	}	
 }
 
@@ -142,18 +140,6 @@ func (rp *Replica) Run() {
 				rp.baxosConsensus.readerChan <- &BaxosMessage{
 					message: replicaMessage.RpcPair.Obj.(*common.ReadRequest),
 					code:   rp.messageCodes.ReadRequest,
-				}
-				
-			case rp.messageCodes.ReadPrepare:
-				rp.baxosConsensus.readerChan <- &BaxosMessage{
-					message: replicaMessage.RpcPair.Obj.(*common.ReadPrepare),
-					code:   rp.messageCodes.ReadPrepare,
-				}
-				
-			case rp.messageCodes.ReadPromise:
-				rp.baxosConsensus.readerChan <- &BaxosMessage{
-					message: replicaMessage.RpcPair.Obj.(*common.ReadPromise),
-					code:   rp.messageCodes.ReadPromise,
 				}
 					
 			}

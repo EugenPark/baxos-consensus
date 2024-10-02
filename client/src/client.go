@@ -34,6 +34,8 @@ type Client struct {
 	arrivalTimeChan chan int64 // channel to which the poisson process adds new request arrival times in nanoseconds w.r.t test start time
 	arrivalChan     chan bool  // channel to which the main scheduler adds new request indications, to be consumed by the request generation threads
 
+	readResponses map[string][]*common.ReadResponse // map of read responses received from replicas
+
 	requests map[string]*ClientRequest // id of the request sent mapped to the time it was sent
 	requestsMutex sync.RWMutex
 
@@ -44,6 +46,8 @@ type Client struct {
 	valueLen            int    // length of value
 
 	Finished bool
+
+	quorumSize int
 }
 
 /*
@@ -83,6 +87,9 @@ func New(id int, logFilePath string, cfg *common.Config, incomingChan <-chan com
 		requests:        make(map[string]*ClientRequest),
 		arrivalChan:     make(chan bool, arrivalBufferSize),
 		arrivalTimeChan: make(chan int64, arrivalBufferSize),
+
+		readResponses: make(map[string][]*common.ReadResponse),
+		quorumSize:   len(cfg.Replicas)/2 + 1,
 
 		Finished: false,
 	}

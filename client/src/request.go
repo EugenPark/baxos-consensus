@@ -40,8 +40,30 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 	if cl.Finished {
 		return
 	}
-
 	id := response.UniqueId
+
+	if len(cl.readResponses[id]) >= cl.quorumSize {
+		cl.debug("Already received quorum of read responses", 0)
+		return
+	}
+
+	cl.readResponses[id] = append(cl.readResponses[id], response)
+
+	if len(cl.readResponses[id]) < cl.quorumSize {
+		return
+	}
+
+	cl.debug(fmt.Sprintf("Received quorum of read responses for id %s", id), 1)
+
+	var latestResponse *common.ReadResponse
+	highestInstanceNumber := int64(-1)
+
+	for _, readResponse := range cl.readResponses[id] {
+		if readResponse.InstanceNumber > highestInstanceNumber {
+			latestResponse = readResponse
+			highestInstanceNumber = readResponse.InstanceNumber
+		}
+	}
 
 	cl.requestsMutex.Lock()
 	defer cl.requestsMutex.Unlock()
@@ -58,13 +80,13 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 	}
 
 	readRequest.endTime()
-	if response.Command == nil {
+	if latestResponse.Command == nil {
 		readRequest.command = ""
 	} else {
-		readRequest.command = response.Command.Value
+		readRequest.command = latestResponse.Command.Value
 	}
 
-	cl.debug("Added read response with id " + id, 1)
+	cl.debug(fmt.Sprintf("Added read response with id %s and value %s", id, latestResponse.Command.Value) , 1)
 }
 
 /*

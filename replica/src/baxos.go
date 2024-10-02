@@ -41,10 +41,6 @@ type BaxosInstance struct {
 	decided              bool
 }
 
-type ReadRequestInstance struct {
-	responses []*common.ReadPromise
-}
-
 /*
 	Baxos struct defines the replica wide consensus variables
 */
@@ -219,20 +215,6 @@ func (rp *Replica) runBaxosReader() {
 			msg := fmt.Sprintf(messageTmpl, msgType)
 			rp.debug(msg, 2)
 			rp.handleReadRequest(readRequest)
-
-		case rp.messageCodes.ReadPrepare:
-			readPrepare := baxosMessage.message.(*common.ReadPrepare)
-			msgType := "read prepare"
-			msg := fmt.Sprintf(messageTmpl, msgType)
-			rp.debug(msg, 2)
-			rp.handleReadPrepare(readPrepare)
-		
-		case rp.messageCodes.ReadPromise:
-			readPromise := baxosMessage.message.(*common.ReadPromise)
-			msgType := "read promise"
-			msg := fmt.Sprintf(messageTmpl, msgType)
-			rp.debug(msg, 2)
-			rp.handleReadPromise(readPromise)
 		
 		default:
 			panic(fmt.Sprintf("Unknown message type for reader %d", baxosMessage.code))

@@ -40,8 +40,6 @@ func (rp *Replica) randomBackOff(instance int) {
 	baxosInstance.proposerBookkeeping.numSuccessfulPromises = 0
 	baxosInstance.proposerBookkeeping.numSuccessfulAccepts = 0
 	baxosInstance.proposerBookkeeping.proposedValue = nil
-	baxosInstance.proposerBookkeeping.highestSeenAcceptedBallot = &common.Ballot{Number: -1, ReplicaId: -1}
-	baxosInstance.proposerBookkeeping.highestSeenAcceptedValue = nil
 
 	rp.debug(fmt.Sprintf("PROPOSER: Instance %d: reset as a result of proposer bookkeeping after timeout", instance), 0)
 

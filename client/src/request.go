@@ -32,6 +32,8 @@ func (cl *Client) handleWriteResponse(response *common.WriteResponse) {
 		return
 	}
 
+	writeRequest.command = response.Command.Value
+
 	writeRequest.endTime()
 	cl.debug("Added write response with id " + id, 1)
 }
@@ -40,30 +42,64 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 	if cl.Finished {
 		return
 	}
+	
+	if len(cl.readResponses[response.UniqueId]) >= cl.quorumSize {
+		return
+	}
+
+	cl.readResponses[response.UniqueId] = append(cl.readResponses[response.UniqueId], response)
+	cl.debug(fmt.Sprintf("Received %d responses for read request with id %s", len(cl.readResponses[response.UniqueId]), response.UniqueId), 0)
+
+	if len(cl.readResponses[response.UniqueId]) == cl.quorumSize {
+		cl.debug(fmt.Sprintf("Received quorum for read request with id %s", response.UniqueId), 0)
+		latestInstanceNumber := int64(-1)
+
+		for _, readResponse := range cl.readResponses[response.UniqueId] {
+			if readResponse.InstanceNumber > latestInstanceNumber {
+				latestInstanceNumber = readResponse.InstanceNumber
+			}
+		}
+
+		cl.debug(fmt.Sprintf("Latest instance number for read request with id %s is %d", response.UniqueId, latestInstanceNumber), 0)
+		cl.sendRinseRequest(latestInstanceNumber, response.UniqueId)
+	}
+}
+
+func (cl *Client) sendRinseRequest(instanceNumber int64, uniqueId string) {
+	if cl.Finished {
+		return
+	}
+
+	cl.debug(fmt.Sprintf("Sending rinse request for id %s", uniqueId), 0)
+
+	rinseRequest := common.RinseRequest {
+		InstanceNumber: instanceNumber,
+		Sender:     int64(cl.id),
+		UniqueId:   uniqueId,
+	}
+
+	rpcPair := common.RPCPair {
+		Code: cl.messageCodes.RinseRequest,
+		Obj: &rinseRequest,
+	}
+
+	cl.outgoingChan <- common.Message {
+		From:    cl.id,
+		To:      cl.replicaNodes[rand.Intn(len(cl.replicaNodes))],
+		RpcPair: &rpcPair,
+	}
+}
+
+func (cl *Client) handleRinseResponse(response *common.RinseResponse) {
 	id := response.UniqueId
 
-	if len(cl.readResponses[id]) >= cl.quorumSize {
-		cl.debug("Already received quorum of read responses", 0)
+	if !response.Decided {
+		cl.debug(fmt.Sprintf("Received rinse response for id %s that was not decided", id), 0)
+		cl.sendRinseRequest(response.InstanceNumber, response.UniqueId)
 		return
 	}
 
-	cl.readResponses[id] = append(cl.readResponses[id], response)
-
-	if len(cl.readResponses[id]) < cl.quorumSize {
-		return
-	}
-
-	cl.debug(fmt.Sprintf("Received quorum of read responses for id %s", id), 1)
-
-	var latestResponse *common.ReadResponse
-	highestInstanceNumber := int64(-1)
-
-	for _, readResponse := range cl.readResponses[id] {
-		if readResponse.InstanceNumber > highestInstanceNumber {
-			latestResponse = readResponse
-			highestInstanceNumber = readResponse.InstanceNumber
-		}
-	}
+	cl.debug(fmt.Sprintf("Received rinse response for id %s that was decided", id), 0)
 
 	cl.requestsMutex.Lock()
 	defer cl.requestsMutex.Unlock()
@@ -80,13 +116,13 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 	}
 
 	readRequest.endTime()
-	if latestResponse.Command == nil {
+	if response.Command == nil {
 		readRequest.command = ""
+		cl.debug("Empty read received", 0)
 	} else {
-		readRequest.command = latestResponse.Command.Value
+		readRequest.command = response.Command.Value
+		cl.debug(fmt.Sprintf("Added read response with id %s and value %s", id, response.Command.Value), 0)
 	}
-
-	cl.debug(fmt.Sprintf("Added read response with id %s and value %s", id, latestResponse.Command.Value) , 1)
 }
 
 /*

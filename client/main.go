@@ -41,6 +41,14 @@ func main() {
 			MsgObj: new(common.PrintLog),
 			Code:   common.GetRPCCodes().PrintLog,
 		},
+		{
+			MsgObj: new(common.RinseResponse),
+			Code:   common.GetRPCCodes().RinseResponse,
+		},
+		{
+			MsgObj: new(common.RinseRequest),
+			Code:   common.GetRPCCodes().RinseRequest,
+		},
 	}
 
 	outgoingChan := make(chan common.Message, 10000000)

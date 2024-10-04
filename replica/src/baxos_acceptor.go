@@ -17,7 +17,7 @@ func (rp *Replica) processPrepare(message *common.PrepareRequest) (*common.Promi
 	rp.createInstance(int(message.InstanceNumber))
 
 	baxos := rp.baxosConsensus
-	baxosInstance := &baxos.replicatedLog[message.InstanceNumber]
+	baxosInstance := baxos.replicatedLog[message.InstanceNumber]
 
 	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d: Already decided, hence sending a decide info", message.InstanceNumber), 1)
@@ -92,7 +92,7 @@ func (rp *Replica) handlePrepare(message *common.PrepareRequest) {
 func (rp *Replica) processPropose(message *common.ProposeRequest) (*common.AcceptReply, *common.DecideInfo) {
 	rp.createInstance(int(message.InstanceNumber))
 	baxos := rp.baxosConsensus
-	baxosInstance := &baxos.replicatedLog[message.InstanceNumber]
+	baxosInstance := baxos.replicatedLog[message.InstanceNumber]
 
 	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("ACCEPTOR: Instance %d: Already decided, hence sending a accept reply with the decided value", message.InstanceNumber), 3)

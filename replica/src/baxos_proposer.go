@@ -24,7 +24,7 @@ func (rp *Replica) setTimer(instance int) {
 
 func (rp *Replica) randomBackOff(instance int) {
 	baxos := rp.baxosConsensus
-	baxosInstance := &baxos.replicatedLog[instance]
+	baxosInstance := baxos.replicatedLog[instance]
 
 	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: already decided, hence ignoring the timeout indication", instance), 2)
@@ -76,7 +76,7 @@ func (rp *Replica) sendPrepare() {
 	nextFreeInstance := baxos.lastCommittedLogIndex + 1
 	rp.createInstance(nextFreeInstance)
 
-	baxosInstance := &baxos.replicatedLog[nextFreeInstance]
+	baxosInstance := baxos.replicatedLog[nextFreeInstance]
 	baxosInstance.proposerBookkeeping.preparedBallot.Number++
 
 	for _, replicaId := range rp.replicaNodes {
@@ -113,7 +113,7 @@ func (rp *Replica) handlePromise(message *common.PromiseReply) {
 		return
 	}
 	
-	baxosInstance := &baxos.replicatedLog[message.InstanceNumber]
+	baxosInstance := baxos.replicatedLog[message.InstanceNumber]
 	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Already decided, hence ignoring the promise", message.InstanceNumber), 3)
 		return
@@ -162,7 +162,7 @@ func (rp *Replica) sendPropose(instance int) {
 	rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Proposing", instance), 3)
 	
 	baxos := rp.baxosConsensus
-	baxosInstance := &baxos.replicatedLog[instance]
+	baxosInstance := baxos.replicatedLog[instance]
 
 	if baxosInstance.proposerBookkeeping.highestSeenAcceptedValue == nil && len(rp.incomingWriteRequests) > 0 {
 		baxosInstance.proposerBookkeeping.highestSeenAcceptedValue = rp.incomingWriteRequests[0]
@@ -199,7 +199,7 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 		rp.debug("PROPOSER: Already backing off, hence ignoring the promise", 3)
 		return
 	}
-	baxosInstance := &baxos.replicatedLog[message.InstanceNumber]
+	baxosInstance := baxos.replicatedLog[message.InstanceNumber]
 	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Already decided, hence ignoring the accept", message.InstanceNumber), 3)
 		return

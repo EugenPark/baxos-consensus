@@ -8,7 +8,7 @@ import (
 func (rp *Replica) handleDecideInfo(message *common.DecideInfo) {
 	rp.debug(fmt.Sprintf("LEARNER: Instance %d: Received a decided value", message.InstanceNumber), 1)
 	rp.createInstance(int(message.InstanceNumber))
-	baxosInstance := &rp.baxosConsensus.replicatedLog[message.InstanceNumber]
+	baxosInstance := rp.baxosConsensus.replicatedLog[message.InstanceNumber]
 	baxosInstance.decided = true
 	baxosInstance.decidedValue = message.DecidedValue
 	rp.updateSMR()

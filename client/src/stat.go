@@ -3,6 +3,7 @@ package src
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/montanaflynn/stats"
@@ -173,7 +174,39 @@ Total number of read responses received := %d`,
 	f.WriteString(overallStatsPrint)
 	f.WriteString("\n---Request Details---\n")
 
-	for _, request := range cl.requests {
+	keys := make([]string, 0, len(cl.requests))
+	for k := range cl.requests {
+		keys = append(keys, k)
+	}
+
+	// sortIdFunc := func(i, j int) bool {
+	// 	// Split the keys into their integer components
+	// 	aParts := strings.Split(keys[i], ".")
+	// 	bParts := strings.Split(keys[j], ".")
+
+	// 	// Convert first part to integer
+	// 	aPart1, _ := strconv.Atoi(aParts[0])
+	// 	bPart1, _ := strconv.Atoi(bParts[0])
+
+	// 	if aPart1 != bPart1 {
+	// 		return aPart1 < bPart1
+	// 	}
+
+	// 	// Convert second part to integer
+	// 	aPart2, _ := strconv.Atoi(aParts[1])
+	// 	bPart2, _ := strconv.Atoi(bParts[1])
+
+	// 	return aPart2 < bPart2
+	// }
+	
+	sortTimeFunc := func(i, j int) bool {
+		return cl.requests[keys[i]].end.Before(cl.requests[keys[j]].end)
+	}
+
+	sort.Slice(keys, sortTimeFunc)
+
+	for _, key := range keys {
+		request := cl.requests[key]
 		f.WriteString(fmt.Sprintf("Id %s {\n\tCommand %s\n\tRequestType %s\n\tCompleted %t\n\tStartTime %d, EndTime %d => Duration in Milliseconds %d\n}\n\n", 
 		                      request.id, request.command, request.requestType, request.isCompleted(), request.start.UnixNano(), request.end.UnixNano(), request.getLatency().Milliseconds()))
 	}

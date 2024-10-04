@@ -26,7 +26,7 @@ flags:
     keyLength: 8
     valueLength: 8
     writeRequestRatio: 0.1
-    arrivalRate: 5
+    arrivalRate: 10
     testDuration: 60
   network:
     artificialLatency: 20 # in ms

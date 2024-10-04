@@ -141,11 +141,11 @@ func (rp *Replica) Run() {
 					message: replicaMessage.RpcPair.Obj.(*common.ReadRequest),
 					code:   rp.messageCodes.ReadRequest,
 				}
-
-			case rp.messageCodes.RinseRequest:
-				rp.baxosConsensus.readerChan <- &BaxosMessage{
-					message: replicaMessage.RpcPair.Obj.(*common.RinseRequest),
-					code:   rp.messageCodes.RinseRequest,
+			
+			case rp.messageCodes.DecideAck:
+				rp.baxosConsensus.proposerChan <- &BaxosMessage{
+					message: replicaMessage.RpcPair.Obj.(*common.DecideAck),
+					code:   rp.messageCodes.DecideAck,
 				}
 			}
 		}

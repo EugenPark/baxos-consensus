@@ -34,8 +34,7 @@ type MessageCode struct {
 	ReadPrepare     uint8
 	ReadPromise    	uint8
 	DecideInfo      uint8
-	RinseRequest    uint8
-	RinseResponse   uint8
+	DecideAck	    uint8
 }
 
 /*
@@ -54,8 +53,7 @@ func GetRPCCodes() MessageCode {
 		ProposeRequest:  8,
 		AcceptReply:     9,
 		DecideInfo:     10,
-		RinseRequest: 11,
-		RinseResponse: 12,
+		DecideAck:      11,
 	}
 }
 
@@ -239,30 +237,16 @@ func (t *DecideInfo) New() Serializable {
 	return new(DecideInfo)
 }
 
-// RinseRequest wrapper
+// DecideAck wrapper
 
-func (t *RinseRequest) Marshal(wire io.Writer) error {
+func (t *DecideAck) Marshal(wire io.Writer) error {
 	return marshalMessage(wire, t)
 }
 
-func (t *RinseRequest) Unmarshal(wire io.Reader) error {
+func (t *DecideAck) Unmarshal(wire io.Reader) error {
 	return unmarshalMessage(wire, t)
 }
 
-func (t *RinseRequest) New() Serializable {
-	return new(RinseRequest)
-}
-
-// RinseResponse wrapper
-
-func (t *RinseResponse) Marshal(wire io.Writer) error {
-	return marshalMessage(wire, t)
-}
-
-func (t *RinseResponse) Unmarshal(wire io.Reader) error {
-	return unmarshalMessage(wire, t)
-}
-
-func (t *RinseResponse) New() Serializable {
-	return new(RinseResponse)
+func (t *DecideAck) New() Serializable {
+	return new(DecideAck)
 }

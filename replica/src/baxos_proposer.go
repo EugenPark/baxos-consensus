@@ -5,6 +5,37 @@ import (
 	"fmt"
 )
 
+func (rp *Replica) runBaxosProposer() {
+	messageTmpl := "Instance %d: Received a message of type %s from %d"
+	for baxosMessage := range rp.baxosConsensus.proposerChan {
+		switch baxosMessage.code {			
+		case rp.messageCodes.PromiseReply:
+			promiseReply := baxosMessage.message.(*common.PromiseReply)
+			msgType := "promise"
+			msg := fmt.Sprintf(messageTmpl, promiseReply.InstanceNumber, msgType, promiseReply.Sender)
+			rp.debug(msg, 2)
+			rp.handlePromise(promiseReply)
+
+		case rp.messageCodes.AcceptReply:
+			acceptReply := baxosMessage.message.(*common.AcceptReply)
+			msgType := "accept"
+			msg := fmt.Sprintf(messageTmpl, acceptReply.InstanceNumber, msgType, acceptReply.Sender)
+			rp.debug(msg, 2)
+			rp.handleAccept(acceptReply)
+
+		case rp.messageCodes.DecideAck:
+			decideAck := baxosMessage.message.(*common.DecideAck)
+			msgType := "decide ack"
+			msg := fmt.Sprintf(messageTmpl, decideAck.InstanceNumber, msgType, decideAck.Sender)
+			rp.debug(msg, 2)
+			rp.handleDecideAck(decideAck)
+
+		default:
+			panic(fmt.Sprintf("Unknown message type for proposer %d", baxosMessage.code))
+		}
+	}
+}
+
 /*
 	sets a timer, which once timeout will send an internal notification for setting the backoff timer
 */
@@ -260,5 +291,28 @@ func (rp *Replica) handleAccept(message *common.AcceptReply) {
 			}
 			rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Sent decide info to %d", message.InstanceNumber, replicaId), 3)
 		}
+	}
+}
+
+func (rp *Replica) handleDecideAck(message *common.DecideAck) {
+	baxos := rp.baxosConsensus
+	baxosInstance := baxos.replicatedLog[message.InstanceNumber]
+
+	if baxosInstance.decidedAcksReceived >= rp.baxosConsensus.quorumSize {
+		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Already received quorum of decide acks", message.InstanceNumber), 3)
+		return
+	}
+
+	baxosInstance.decidedAcksReceived++
+	rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Received a decide ack, hence incrementing the count", message.InstanceNumber), 3)
+
+	if baxosInstance.decidedAcksReceived == rp.baxosConsensus.quorumSize {
+		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: Received quorum of decide acks, hence committing", message.InstanceNumber), 3)
+		writeResponse := &common.WriteResponse {
+			UniqueId:      baxosInstance.decidedValue.UniqueId,
+			Command: 	   baxosInstance.decidedValue.Command,
+			Sender: 	  int64(rp.id),
+		}
+		rp.sendClientResponse(writeResponse, int(baxosInstance.decidedValue.Sender))
 	}
 }

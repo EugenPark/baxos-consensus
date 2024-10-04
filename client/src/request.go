@@ -52,76 +52,39 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 
 	if len(cl.readResponses[response.UniqueId]) == cl.quorumSize {
 		cl.debug(fmt.Sprintf("Received quorum for read request with id %s", response.UniqueId), 0)
-		latestInstanceNumber := int64(-1)
+		latestDecidedResponse := cl.readResponses[response.UniqueId][0]
 
 		for _, readResponse := range cl.readResponses[response.UniqueId] {
-			if readResponse.InstanceNumber > latestInstanceNumber {
-				latestInstanceNumber = readResponse.InstanceNumber
+			if readResponse.InstanceNumber > latestDecidedResponse.InstanceNumber {
+				latestDecidedResponse = readResponse
 			}
 		}
 
-		cl.debug(fmt.Sprintf("Latest instance number for read request with id %s is %d", response.UniqueId, latestInstanceNumber), 0)
-		cl.sendRinseRequest(latestInstanceNumber, response.UniqueId)
-	}
-}
+		cl.debug(fmt.Sprintf("Latest decided instance number for read request with id %s is %d", latestDecidedResponse.UniqueId, latestDecidedResponse.InstanceNumber), 0)
 
-func (cl *Client) sendRinseRequest(instanceNumber int64, uniqueId string) {
-	if cl.Finished {
-		return
-	}
+		cl.requestsMutex.Lock()
+		defer cl.requestsMutex.Unlock()
+		// check if key already exists
+		id := latestDecidedResponse.UniqueId
+		readRequest, ok := cl.requests[id]
+		if !ok {
+			cl.debug(fmt.Sprintf("Received response for a read request with id %s that was not sent", id), 0)
+			panic("should not happen")
+		}
 
-	cl.debug(fmt.Sprintf("Sending rinse request for id %s", uniqueId), 0)
+		if readRequest.isCompleted() {
+			cl.debug(fmt.Sprintf("Already received read response for this id %s", id), 0)
+			return
+		}
 
-	rinseRequest := common.RinseRequest {
-		InstanceNumber: instanceNumber,
-		Sender:     int64(cl.id),
-		UniqueId:   uniqueId,
-	}
-
-	rpcPair := common.RPCPair {
-		Code: cl.messageCodes.RinseRequest,
-		Obj: &rinseRequest,
-	}
-
-	cl.outgoingChan <- common.Message {
-		From:    cl.id,
-		To:      cl.replicaNodes[rand.Intn(len(cl.replicaNodes))],
-		RpcPair: &rpcPair,
-	}
-}
-
-func (cl *Client) handleRinseResponse(response *common.RinseResponse) {
-	id := response.UniqueId
-
-	if !response.Decided {
-		cl.debug(fmt.Sprintf("Received rinse response for id %s that was not decided", id), 0)
-		cl.sendRinseRequest(response.InstanceNumber, response.UniqueId)
-		return
-	}
-
-	cl.debug(fmt.Sprintf("Received rinse response for id %s that was decided", id), 0)
-
-	cl.requestsMutex.Lock()
-	defer cl.requestsMutex.Unlock()
-	// check if key already exists
-	readRequest, ok := cl.requests[id]
-	if !ok {
-		cl.debug(fmt.Sprintf("Received response for a read request with id %s that was not sent", id), 0)
-		panic("should not happen")
-	}
-
-	if readRequest.isCompleted() {
-		cl.debug(fmt.Sprintf("Already received read response for this id %s", id), 0)
-		return
-	}
-
-	readRequest.endTime()
-	if response.Command == nil {
-		readRequest.command = ""
-		cl.debug("Empty read received", 0)
-	} else {
-		readRequest.command = response.Command.Value
-		cl.debug(fmt.Sprintf("Added read response with id %s and value %s", id, response.Command.Value), 0)
+		readRequest.endTime()
+		if latestDecidedResponse.Command == nil {
+			readRequest.command = ""
+			cl.debug("Empty read received", 0)
+		} else {
+			readRequest.command = latestDecidedResponse.Command.Value
+			cl.debug(fmt.Sprintf("Added read response with id %s and value %s", id, latestDecidedResponse.Command.Value), 0)
+		}
 	}
 }
 

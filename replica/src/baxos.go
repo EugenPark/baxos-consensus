@@ -39,6 +39,7 @@ type BaxosInstance struct {
 	acceptorBookkeeping BaxosAcceptorInstance
 	decidedValue         *common.WriteRequest
 	decided              bool
+	decidedAcksReceived  int
 }
 
 /*
@@ -138,73 +139,6 @@ func (rp *Replica) calculateBackOffTime() time.Duration {
 	return time.Duration(float64(rp.baxosConsensus.roundTripTime.Nanoseconds()) * multiplier) + PROCESSING_TIME
 }
 
-// external API for Baxos messages
-
-func (rp *Replica) runBaxosAcceptor() {
-	messageTmpl := "Instance %d: Received a message of type %s from %d"
-	for baxosMessage := range rp.baxosConsensus.acceptorChan {
-		switch baxosMessage.code {
-		case rp.messageCodes.PrepareRequest:
-			prepareRequest := baxosMessage.message.(*common.PrepareRequest)
-			msgType := "prepare"
-			msg := fmt.Sprintf(messageTmpl, prepareRequest.InstanceNumber, msgType, prepareRequest.Sender)
-			rp.debug(msg, 2)
-			rp.handlePrepare(prepareRequest)
-		
-		case rp.messageCodes.ProposeRequest: 
-			proposeRequest := baxosMessage.message.(*common.ProposeRequest)
-			msgType := "propose"
-			msg := fmt.Sprintf(messageTmpl, proposeRequest.InstanceNumber, msgType, proposeRequest.Sender)
-			rp.debug(msg, 2)
-			rp.handlePropose(proposeRequest)
-		
-		default:
-			panic(fmt.Sprintf("Unknown message type in Acceptor %d", baxosMessage.code))
-		}
-	}
-}
-
-func (rp *Replica) runBaxosLearner() {
-	messageTmpl := "Instance %d: Received a message of type %s"
-	for baxosMessage := range rp.baxosConsensus.learnerChan {
-		switch baxosMessage.code {
-		case rp.messageCodes.DecideInfo:
-			decideInfo := baxosMessage.message.(*common.DecideInfo)
-			msgType := "decide"
-			msg := fmt.Sprintf(messageTmpl, decideInfo.InstanceNumber, msgType)
-			rp.debug(msg, 3)
-			rp.handleDecideInfo(decideInfo)
-
-		default:
-			panic(fmt.Sprintf("Unknown message type in Learner %d", baxosMessage.code))
-		}
-	}
-}
-
-func (rp *Replica) runBaxosProposer() {
-	messageTmpl := "Instance %d: Received a message of type %s from %d"
-	for baxosMessage := range rp.baxosConsensus.proposerChan {
-		switch baxosMessage.code {			
-		case rp.messageCodes.PromiseReply:
-			promiseReply := baxosMessage.message.(*common.PromiseReply)
-			msgType := "promise"
-			msg := fmt.Sprintf(messageTmpl, promiseReply.InstanceNumber, msgType, promiseReply.Sender)
-			rp.debug(msg, 2)
-			rp.handlePromise(promiseReply)
-
-		case rp.messageCodes.AcceptReply:
-			acceptReply := baxosMessage.message.(*common.AcceptReply)
-			msgType := "accept"
-			msg := fmt.Sprintf(messageTmpl, acceptReply.InstanceNumber, msgType, acceptReply.Sender)
-			rp.debug(msg, 2)
-			rp.handleAccept(acceptReply)
-
-		default:
-			panic(fmt.Sprintf("Unknown message type for proposer %d", baxosMessage.code))
-		}
-	}
-}
-
 /*
 	create instance number n
 */
@@ -265,15 +199,8 @@ func (rp *Replica) updateSMR() {
 			}
 		}
 
-		response := common.WriteResponse {
-			UniqueId: baxosInstance.decidedValue.UniqueId,
-			Command:  baxosInstance.decidedValue.Command,
-			Sender:  int64(rp.id),
-		}
-
 		baxos.lastCommittedLogIndex = i
 		
-		rp.sendClientResponse(&response, int(baxosInstance.decidedValue.Sender))
 		rp.debug(fmt.Sprintf("Send Client response for committed baxos consensus instance %d", i), 0)
 	}
 }

@@ -42,12 +42,8 @@ func main() {
 			Code:   common.GetRPCCodes().PrintLog,
 		},
 		{
-			MsgObj: new(common.RinseResponse),
-			Code:   common.GetRPCCodes().RinseResponse,
-		},
-		{
-			MsgObj: new(common.RinseRequest),
-			Code:   common.GetRPCCodes().RinseRequest,
+			MsgObj: new(common.DecideAck),
+			Code:   common.GetRPCCodes().DecideAck,
 		},
 	}
 

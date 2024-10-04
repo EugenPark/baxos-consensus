@@ -64,12 +64,8 @@ func main() {
 			MsgObj: new(common.DecideInfo),
 		},
 		{
-			Code: common.GetRPCCodes().RinseRequest,
-			MsgObj: new(common.RinseRequest),
-		},
-		{
-			Code: common.GetRPCCodes().RinseResponse,
-			MsgObj: new(common.RinseResponse),
+			Code: common.GetRPCCodes().DecideAck,
+			MsgObj: new(common.DecideAck),
 		},
 	}
 

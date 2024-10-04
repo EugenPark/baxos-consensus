@@ -126,11 +126,6 @@ func (cl *Client) Run() {
 			response := replicaMessage.RpcPair.Obj.(*common.ReadResponse)
 			cl.debug(fmt.Sprintf("Client %d: Received read response from %d", cl.id, response.Sender), 0)
 			cl.handleReadResponse(response)
-
-		case cl.messageCodes.RinseResponse:
-			response := replicaMessage.RpcPair.Obj.(*common.RinseResponse)
-			cl.debug(fmt.Sprintf("Client %d: Received rinse response from %d", cl.id, response.Sender), 0)
-			cl.handleRinseResponse(response)
 		}
 	}
 }

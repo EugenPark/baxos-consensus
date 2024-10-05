@@ -4,6 +4,7 @@ import (
 	"baxos/common"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 /*
@@ -85,6 +86,14 @@ func (rp *Replica) Run() {
 	go rp.runBaxosLearner()
 	go rp.runBaxosProposer()
 	go rp.runBaxosReader()
+	go func() {
+		for {
+			if len(rp.incomingWriteRequests) > 0 {
+				rp.tryPrepare()
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
 
 	for {
 		select {
@@ -117,7 +126,7 @@ func (rp *Replica) Run() {
 					message: replicaMessage.RpcPair.Obj.(*common.PromiseReply),
 					code:   rp.messageCodes.PromiseReply,
 				}
-						
+			
 			case rp.messageCodes.ProposeRequest: 
 				rp.baxosConsensus.acceptorChan <- &BaxosMessage{
 					message: replicaMessage.RpcPair.Obj.(*common.ProposeRequest),
@@ -129,19 +138,19 @@ func (rp *Replica) Run() {
 					message: replicaMessage.RpcPair.Obj.(*common.AcceptReply),
 					code:   rp.messageCodes.AcceptReply,
 				}
-				
+			
 			case rp.messageCodes.DecideInfo:
 				rp.baxosConsensus.learnerChan <- &BaxosMessage{
 					message: replicaMessage.RpcPair.Obj.(*common.DecideInfo),
 					code:   rp.messageCodes.DecideInfo,
 				}
-				
+
 			case rp.messageCodes.ReadRequest:
 				rp.baxosConsensus.readerChan <- &BaxosMessage{
 					message: replicaMessage.RpcPair.Obj.(*common.ReadRequest),
 					code:   rp.messageCodes.ReadRequest,
 				}
-			
+	
 			case rp.messageCodes.DecideAck:
 				rp.baxosConsensus.proposerChan <- &BaxosMessage{
 					message: replicaMessage.RpcPair.Obj.(*common.DecideAck),

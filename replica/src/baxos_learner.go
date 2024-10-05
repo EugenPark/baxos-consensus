@@ -38,5 +38,9 @@ func (rp *Replica) handleDecideInfo(message *common.DecideInfo) {
 		To:      int(message.Sender),
 		RpcPair: &common.RPCPair{Code: rp.messageCodes.DecideAck, Obj: decidedAck},
 	}
-	rp.debug(fmt.Sprintf("LEARNER: Instance %d: Decided value: %s", message.InstanceNumber, message.DecidedValue.Command.Value), 3)
+	if message.DecidedValue.Command != nil {
+		rp.debug(fmt.Sprintf("LEARNER: Instance %d: Decided value: %s", message.InstanceNumber, message.DecidedValue.Command.Value), 0)
+	} else {
+		rp.debug(fmt.Sprintf("LEARNER: Instance %d: Decided value: <empty>", message.InstanceNumber), 0)
+	}
 }

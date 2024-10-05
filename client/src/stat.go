@@ -9,6 +9,8 @@ import (
 	"github.com/montanaflynn/stats"
 )
 
+const WAIT_TIME = 5 // seconds
+
 type ClientRequest struct {
 	id       string
 	command  string
@@ -58,7 +60,7 @@ func getNumberOfRequests(requests map[string]*ClientRequest, filter func(*Client
 }
 
 func getRequestsPerSecond(numberOfRequests int, duration int) float64 {
-	return float64(numberOfRequests) / float64(duration)
+	return float64(numberOfRequests) / float64(duration + WAIT_TIME)
 }
 
 func getErrorRate(totalRequests int, totalResponses int) int {

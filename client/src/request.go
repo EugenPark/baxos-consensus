@@ -163,20 +163,32 @@ func (cl *Client) generateRequests() {
 		if rand.Float64() < cl.writeRequestRatio {
 			rpcPair = cl.generateWriteRPCPair(uniqueId)
 			cl.debug(fmt.Sprintf("Client %d: Generated a write request with id %s", cl.id, uniqueId), 0)
-		} else {
-			rpcPair = cl.generateReadRPCPair(uniqueId)
-			cl.debug(fmt.Sprintf("Client %d: Generated a read request with id %s", cl.id, uniqueId), 0)
-		}
 
-		for _, replicaId := range cl.replicaNodes {
+			randomReplica := rand.Intn(len(cl.replicaNodes))
+
 			cl.outgoingChan <- common.Message {
 				From:  cl.id,
-				To: replicaId,
+				To: randomReplica,
 				RpcPair:  &rpcPair,
 			}
 
-			cl.debug(fmt.Sprintf("Client %d: Sent a request with id %s to replica with id %d", cl.id, uniqueId, replicaId), 0)
+			cl.debug(fmt.Sprintf("Client %d: Sent a request with id %s to replica with id %d", cl.id, uniqueId, randomReplica), 0)
+			
+		} else {
+			rpcPair = cl.generateReadRPCPair(uniqueId)
+			cl.debug(fmt.Sprintf("Client %d: Generated a read request with id %s", cl.id, uniqueId), 0)
+
+			for _, replicaId := range cl.replicaNodes {
+				cl.outgoingChan <- common.Message {
+					From:  cl.id,
+					To: replicaId,
+					RpcPair:  &rpcPair,
+				}
+	
+				cl.debug(fmt.Sprintf("Client %d: Sent a read request with id %s to replica with id %d", cl.id, uniqueId, replicaId), 0)
+			}
 		}
+
 		requestCounter++
 	}
 }

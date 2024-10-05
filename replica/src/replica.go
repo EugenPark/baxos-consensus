@@ -4,6 +4,7 @@ import (
 	"baxos/common"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 /*
@@ -85,6 +86,14 @@ func (rp *Replica) Run() {
 	go rp.runBaxosLearner()
 	go rp.runBaxosProposer()
 	go rp.runBaxosReader()
+	go func() {
+		for {
+			if len(rp.incomingWriteRequests) > 0 {
+				rp.tryPrepare()
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
 
 	for {
 		select {

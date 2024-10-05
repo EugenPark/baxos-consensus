@@ -66,9 +66,9 @@ func main() {
 	time.Sleep(time.Duration(5) * time.Second)
 
 	cl.SendRequests()
-	cl.Finished = true
 	fmt.Printf("Finish sending requests \n")
 	cl.SendPrintLogRequest()
+	time.Sleep(time.Duration(cfg.Flags.NetworkFlags.ArtificialLatency) + time.Duration(src.WAIT_TIME) * time.Second) // wait to ensure all logs are printed
+	cl.Finished = true
 	cl.ComputeStats()
-	time.Sleep(time.Duration(cfg.Flags.NetworkFlags.ArtificialLatency) + time.Duration(5) * time.Second) // wait to ensure all logs are printed
 }

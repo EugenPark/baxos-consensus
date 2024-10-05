@@ -26,13 +26,14 @@ func (rp *Replica) randomBackOff(instance int) {
 	baxos := rp.baxosConsensus
 	baxosInstance := baxos.replicatedLog[instance]
 
+	baxos.isPreparing = false
+
 	if baxosInstance.decided {
 		rp.debug(fmt.Sprintf("PROPOSER: Instance %d: already decided, hence ignoring the timeout indication", instance), 2)
 		return
 	}
 
 	baxos.isBackingOff = true
-	baxos.isPreparing = true
 	baxos.timer = nil
 	baxos.retries++
 
@@ -64,7 +65,7 @@ func (rp *Replica) prepareAfterBackoff() {
 	rp.debug("PROPOSER: Preparing after backing off", 3)
 	
 	rp.baxosConsensus.isBackingOff = false
-	rp.sendPrepare()
+	rp.tryPrepare()
 }
 
 /*
@@ -145,14 +146,14 @@ func (rp *Replica) handlePromise(message *common.PromiseReply) {
 
 // invoked upon receiving a client batch
 func (rp *Replica) tryPrepare() {
-	if rp.baxosConsensus.isPreparing || rp.baxosConsensus.isBackingOff {
+	if rp.baxosConsensus.isPreparing || rp.baxosConsensus.isBackingOff || len(rp.incomingWriteRequests) == 0  {
 		rp.debug("PROPOSER: Already proposing or backing off, hence ignoring the propose request", 1)
 		
 		return
 	}
 
-	rp.sendPrepare()
 	rp.baxosConsensus.isPreparing = true
+	rp.sendPrepare()
 }
 /*
 	propose a command for instance n

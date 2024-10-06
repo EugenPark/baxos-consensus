@@ -16,18 +16,18 @@ clients:
   - id: 11
     domain: "client_11"
     port: 8080
-  - id: 12
-    domain: "client_12"
-    port: 8080
+  # - id: 12
+  #   domain: "client_12"
+  #   port: 8080
 
 flags:
   client:
     debugLevel: 3
     keyLength: 8
     valueLength: 8
-    writeRequestRatio: 0.1
-    arrivalRate: 5
-    testDuration: 60
+    writeRequestRatio: 0
+    arrivalRate: 30000
+    testDuration: 10
   network:
     artificialLatency: 20 # in ms
     debugLevel: 0 # <=0 means no debug

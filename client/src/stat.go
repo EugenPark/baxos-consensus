@@ -80,7 +80,7 @@ func getErrorRate(totalRequests int, totalResponses int) int {
 	Print the basic stats to the stdout and the logs to a file
 */
 
-func (cl *Client) ComputeStats() {
+func (cl *Client) ComputeStats(duration int) {
 	logFilePath := fmt.Sprintf("%s%d.txt", cl.logFilePath, cl.id)
 	cl.debug(logFilePath, 0)
 	f, err := os.Create(logFilePath) // log file
@@ -122,7 +122,7 @@ func (cl *Client) ComputeStats() {
 	numTotalResponses := getNumberOfRequests(cl.requests, func(request *ClientRequest) bool {
 		return request.isCompleted()
 	})
-	requestsPerSecond := getRequestsPerSecond(numTotalResponses, cl.testDuration)
+	requestsPerSecond := getRequestsPerSecond(numTotalResponses, duration)
 	errorRate := getErrorRate(numTotalSentRequests, numTotalResponses)
 
 	numWriteRequests := getNumberOfRequests(cl.requests, func(request *ClientRequest) bool {
@@ -131,7 +131,7 @@ func (cl *Client) ComputeStats() {
 	numWriteResponses := getNumberOfRequests(cl.requests, func(request *ClientRequest) bool {
 		return request.isCompleted() && request.isWriteRequest()
 	})
-	writeRequestsPerSecond := getRequestsPerSecond(numWriteResponses, cl.testDuration)
+	writeRequestsPerSecond := getRequestsPerSecond(numWriteResponses, duration)
 	writeErrorRate := getErrorRate(numWriteRequests, numWriteResponses)
 
 	numReadRequests := getNumberOfRequests(cl.requests, func(request *ClientRequest) bool {
@@ -140,7 +140,7 @@ func (cl *Client) ComputeStats() {
 	numReadResponses := getNumberOfRequests(cl.requests, func(request *ClientRequest) bool {
 		return request.isCompleted() && !request.isWriteRequest()
 	})
-	readRequestsPerSecond := getRequestsPerSecond(numReadResponses, cl.testDuration)
+	readRequestsPerSecond := getRequestsPerSecond(numReadResponses, duration)
 	readErrorRate := getErrorRate(numReadRequests, numReadResponses)
 
 	overallStatsPrint := fmt.Sprintf(
@@ -166,7 +166,7 @@ Median Latency for read requests := %.2f milliseconds per request
 Error Rate for read requests := %d 
 Total number of read requests sent := %d
 Total number of read responses received := %d`,
-		cl.id, cl.testDuration, requestsPerSecond, medianLatency, percentile99, errorRate, numTotalSentRequests, 
+		cl.id, duration, requestsPerSecond, medianLatency, percentile99, errorRate, numTotalSentRequests, 
 		numTotalResponses, writeRequestsPerSecond, medianWriteLatency, writePercentile99, writeErrorRate,
 		numWriteRequests, numWriteResponses, readRequestsPerSecond, medianReadLatency, readPercentile99,
 		readErrorRate, numReadRequests, numReadResponses)

@@ -65,10 +65,15 @@ func main() {
 
 	time.Sleep(time.Duration(5) * time.Second)
 
+	timeStart := time.Now()
+
 	cl.SendRequests()
+	for !cl.Finished {
+		time.Sleep(time.Duration(1) * time.Second)
+	}
+	timeEnd := time.Now()
 	fmt.Printf("Finish sending requests \n")
 	cl.SendPrintLogRequest()
 	time.Sleep(time.Duration(cfg.Flags.NetworkFlags.ArtificialLatency) + time.Duration(src.WAIT_TIME) * time.Second) // wait to ensure all logs are printed
-	cl.Finished = true
-	cl.ComputeStats()
+	cl.ComputeStats(int(timeEnd.Sub(timeStart).Seconds()))
 }

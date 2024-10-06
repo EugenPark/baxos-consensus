@@ -14,21 +14,6 @@ services:
       - replica_2
       - replica_3
 
-  client_12:
-    container_name: client_12
-    build:
-      dockerfile: experiments/reads/client.dockerfile
-      context: ../../
-    environment:
-      CLIENT_ID: 12
-    volumes:
-      - logs:/logs
-    depends_on:
-      - replica_0
-      - replica_1
-      - replica_2
-      - replica_3
-
   replica_0:
     container_name: replica_0
     build:

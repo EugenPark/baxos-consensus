@@ -135,7 +135,6 @@ func (cl *Client) handleRinseResponse(response *common.RinseResponse) {
 func (cl *Client) SendRequests() {
 	go cl.generateRequests()
 	go cl.startScheduler()
-	time.Sleep(time.Duration(cl.testDuration) * time.Second)
 }
 
 func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
@@ -188,12 +187,12 @@ func (cl *Client) generateReadRPCPair(uniqueId string) common.RPCPair {
 }
 
 func (cl *Client) generateRequests() {
-	requestCounter := 0
-	for !cl.Finished {            		
+	println(cl.testDuration * int(cl.arrivalRate))
+	for cl.requestsSent < cl.testDuration * int(cl.arrivalRate) {            		
 		<-cl.arrivalChan
 		cl.debug("New request arrival", 0)
 
-		uniqueId := fmt.Sprintf("%d.%d", cl.id, requestCounter)
+		uniqueId := fmt.Sprintf("%d.%d", cl.id, cl.requestsSent)
 		
 		var rpcPair common.RPCPair
 
@@ -223,8 +222,9 @@ func (cl *Client) generateRequests() {
 				cl.debug(fmt.Sprintf("Client %d: Sent a read request with id %s to replica with id %d", cl.id, uniqueId, replicaId), 0)
 			}
 		}
-		requestCounter++
+		cl.requestsSent++
 	}
+	cl.Finished = true
 }
 
 /*

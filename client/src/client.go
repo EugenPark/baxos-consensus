@@ -37,6 +37,7 @@ type Client struct {
 	readResponses map[string][]*common.ReadResponse // map of read responses received from replicas
 
 	requests map[string]*ClientRequest // id of the request sent mapped to the time it was sent
+	requestsSent int // number of requests sent
 	requestsMutex sync.RWMutex
 
 	startTime time.Time // test start time

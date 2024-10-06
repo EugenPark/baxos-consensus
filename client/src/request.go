@@ -98,7 +98,6 @@ func (cl *Client) handleReadResponse(response *common.ReadResponse) {
 func (cl *Client) SendRequests() {
 	go cl.generateRequests()
 	go cl.startScheduler()
-	time.Sleep(time.Duration(cl.testDuration) * time.Second)
 }
 
 func (cl *Client) generateWriteRPCPair(uniqueId string) common.RPCPair {
@@ -151,12 +150,12 @@ func (cl *Client) generateReadRPCPair(uniqueId string) common.RPCPair {
 }
 
 func (cl *Client) generateRequests() {
-	requestCounter := 0
-	for !cl.Finished {            		
+	cl.requestsSent = 0
+	for cl.requestsSent < cl.testDuration * int(cl.arrivalRate) {            		
 		<-cl.arrivalChan
 		cl.debug("New request arrival", 0)
 
-		uniqueId := fmt.Sprintf("%d.%d", cl.id, requestCounter)
+		uniqueId := fmt.Sprintf("%d.%d", cl.id, cl.requestsSent)
 		
 		var rpcPair common.RPCPair
 
@@ -189,8 +188,9 @@ func (cl *Client) generateRequests() {
 			}
 		}
 
-		requestCounter++
+		cl.requestsSent++
 	}
+	cl.Finished = true
 }
 
 /*

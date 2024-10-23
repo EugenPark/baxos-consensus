@@ -25,9 +25,9 @@ flags:
     debugLevel: 3
     keyLength: 8
     valueLength: 8
-    writeRequestRatio: 0
-    arrivalRate: 30000
-    testDuration: 10
+    writeRequestRatio: 0.1
+    arrivalRate: 10
+    testDuration: 30
   network:
     artificialLatency: 20 # in ms
     debugLevel: 0 # <=0 means no debug
